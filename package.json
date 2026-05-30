@@ -1,0 +1,25 @@
+{
+  "name": "operio-agent",
+  "version": "1.0.0",
+  "description": "Autonomous virtual dispatcher and SRE for brick-and-mortar operations, powered by Gemini and the Model Context Protocol.",
+  "type": "module",
+  "main": "src/backend/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/backend/index.ts",
+    "build": "tsc",
+    "start": "node dist/backend/index.js",
+    "test": "vitest run",
+    "evaluate": "vitest run tests/evaluate.test.ts",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.11.2",
+    "hono": "^4.3.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

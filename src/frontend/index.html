@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operio — Autonomous Mall Operations Command</title>
+  <!-- Google Fonts: Manrope (Headings) & Inter (Data/Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+
+  <!-- Sidebar Nav (Tonal Layer: surface-container-low) -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-symbol"></div>
+      <span class="logo-text">OPERIO</span>
+    </div>
+    <nav class="nav-links">
+      <a href="#" class="nav-item active">Dashboard</a>
+      <a href="#" class="nav-item">Lease Audits</a>
+      <a href="#" class="nav-item">Active Staff</a>
+      <a href="#" class="nav-item">Work Tickets</a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-indicator online"></span>
+      <span class="status-label">Agent Orchestrator Online</span>
+    </div>
+  </aside>
+
+  <!-- Main Work Center (Base Layer: background) -->
+  <main class="main-content">
+    <header class="main-header">
+      <div class="header-titles">
+        <span class="label-md uppercase tracking">Operational Command</span>
+        <h1 class="display-lg">The Architectural Ledger</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">Logs Tracing</button>
+        <button class="btn btn-primary">New Work Order</button>
+      </div>
+    </header>
+
+    <!-- Metrics Section (Precision Grid) -->
+    <section class="metrics-grid">
+      <div class="metric-block">
+        <span class="label-sm uppercase muted">Active Work Orders</span>
+        <span class="metric-value">12</span>
+        <div class="sparkline positive"></div>
+      </div>
+      <div class="metric-block">
+        <span class="label-sm uppercase muted">Pending Dispatch</span>
+        <span class="metric-value">3</span>
+        <div class="sparkline warning"></div>
+      </div>
+      <div class="metric-block">
+        <span class="label-sm uppercase muted">Technicians Active</span>
+        <span class="metric-value">8 / 10</span>
+        <div class="sparkline stable"></div>
+      </div>
+    </section>
+
+    <!-- Content Workspace -->
+    <div class="workspace-grid">
+      <!-- Active Tickets Panel (Tonal Card: surface-container-lowest) -->
+      <section class="panel main-panel">
+        <div class="panel-header">
+          <h2 class="headline-sm">Operational Queue</h2>
+          <span class="chip chip-success">All Active Tasks</span>
+        </div>
+        <div class="ticket-list">
+          <div class="ticket-row">
+            <div class="ticket-info">
+              <span class="ticket-id font-mono">WO-9942</span>
+              <span class="ticket-title">Storefront AC unit blowing warm air</span>
+            </div>
+            <div class="ticket-meta">
+              <span class="label-sm muted">Nike Store · Unit 104</span>
+              <span class="chip chip-warning">Pending Approval</span>
+            </div>
+          </div>
+          <div class="ticket-row">
+            <div class="ticket-info">
+              <span class="ticket-id font-mono">WO-9941</span>
+              <span class="ticket-title">Escalator fault code error E-04</span>
+            </div>
+            <div class="ticket-meta">
+              <span class="label-sm muted">Central Court · Sector B</span>
+              <span class="chip chip-success">Dispatched</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Agent Activity Tracing (Tonal Card: surface-container-lowest) -->
+      <aside class="panel side-panel">
+        <div class="panel-header">
+          <h2 class="headline-sm">Agent Decisions</h2>
+        </div>
+        <div class="decision-feed">
+          <div class="decision-card">
+            <span class="label-xs uppercase tracking highlight">Lease Audit</span>
+            <p class="body-sm">Audited Section 9.1 of Nike Store lease. Landlord responsible for storefront HVAC repairs under $1,000 threshold.</p>
+            <span class="font-mono label-xs muted">Matched Snippet: Section 9.1 - Tenant AHU Maintenance</span>
+          </div>
+          <div class="decision-card">
+            <span class="label-xs uppercase tracking highlight">Staff Match</span>
+            <p class="body-sm">Identified Sarah Connor (HVAC, Electrical) available in Sector B. ETA 12 mins.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Human-in-the-Loop Dialog Overlay (Glassmorphism + Backdrop Filter) -->
+  <div class="dialog-overlay hidden" id="hitl-overlay">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <h3 class="headline-sm">Escalation Approval Required</h3>
+        <button class="btn-close" id="btn-close-dialog">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p class="body-md">Work order **WO-9942** exceeds the autonomous limit or contains lease ambiguity.</p>
+        <div class="audit-quote">
+          <blockquote>"Landlord shall maintain the storefront air conditioning system except for routine filter changes."</blockquote>
+          <cite>Section 9.1, Nike Lease Agreement</cite>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary">Reject & Route</button>
+        <button class="btn btn-primary">Approve Dispatch</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

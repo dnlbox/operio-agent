@@ -1,0 +1,56 @@
+direction: right
+
+# Define Nodes
+tenant: Tenant Portal {
+  shape: person
+  style.fill: "#E2F0D9"
+}
+
+manager: Mall Manager {
+  shape: person
+  style.fill: "#FCE4D6"
+}
+
+orchestrator: Operio Agent Orchestrator {
+  style.fill: "#D9E1F2"
+  style.stroke-width: 2
+}
+
+elastic: Elastic MCP Server {
+  style.fill: "#FFF2CC"
+  label: "Elastic MCP\n(Lease & Manuals RAG)"
+}
+
+mongodb: MongoDB MCP Server {
+  style.fill: "#E1D5E7"
+  label: "MongoDB MCP\n(Transactional DB)"
+}
+
+arize: Arize Phoenix {
+  style.fill: "#F8CECC"
+  label: "Arize Phoenix\n(Observability & Evals)"
+}
+
+# Define Connections
+tenant -> orchestrator: "1. Report Issue\n(e.g., HVAC failure)" {
+  style.stroke: "#5B9BD5"
+}
+
+orchestrator -> elastic: "2. Search Lease Clauses"
+elastic -> orchestrator: "3. Return Liability Rules"
+
+orchestrator -> mongodb: "4. Query Available Staff\n& Check Certificates"
+mongodb -> orchestrator: "5. Return Matching Technician"
+
+orchestrator -> manager: "6. Escalation Request\n(HITL Approval)" {
+  style.stroke: "#ED7D31"
+  style.stroke-dash: 5
+}
+manager -> orchestrator: "7. Approved / Rejected"
+
+orchestrator -> mongodb: "8. Write & Assign\nWork Order"
+orchestrator -> tenant: "9. Send Dispatch Status & ETA"
+
+orchestrator -> arize: "Log Trace & Tool Calls\n(Continuous Auditing)" {
+  style.stroke: "#70AD47"
+}
