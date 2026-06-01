@@ -13,8 +13,12 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^8.13.0",
     "@hono/node-server": "^1.11.2",
-    "hono": "^4.3.11"
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dotenv": "^16.4.5",
+    "hono": "^4.3.11",
+    "mongodb": "^6.6.2"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
