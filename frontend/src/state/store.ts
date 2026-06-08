@@ -1,4 +1,4 @@
-import { AppState, Ticket, Staff, ChatMessage, TimelineStep, RAGHit } from '@/types';
+import { AppState, AppView, Ticket, Staff, ChatMessage, TimelineStep, RAGHit } from '@/types';
 import { clone } from '@/utils/fp';
 import { create } from 'zustand';
 
@@ -69,7 +69,7 @@ export const initialState: AppState = {
  * @param view The name of the panel view.
  * @returns State updater function.
  */
-export const setView = (view: 'dashboard' | 'tenanthub' | 'knowledge' | 'staff') => (state: AppState): AppState => ({
+export const setView = (view: AppView) => (state: AppState): AppState => ({
   ...state,
   activeView: view,
 });
@@ -249,7 +249,7 @@ export interface AppStateStore extends AppState {
   /** Dispatches a custom state reducer update function. */
   dispatch: (reducer: (state: AppState) => AppState) => void;
   /** Sets the active panel view. */
-  setView: (view: 'dashboard' | 'tenanthub' | 'knowledge' | 'staff') => void;
+  setView: (view: AppView) => void;
   /** Updates weather values. */
   setWeather: (temp: string, desc: string, alert: string | null) => void;
   /** Sets current dashboard records. */

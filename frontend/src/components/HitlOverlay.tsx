@@ -174,6 +174,7 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
 
   const matchingTechs = staff.filter(person => person.skills.includes(skillNeeded));
   const fallbackTechs = staff.filter(person => !person.skills.includes(skillNeeded));
+  const selectedAssignee = staff.find((person) => person._id === assigneeId);
 
   // Generate payload preview (bearer token redacted to prevent leak)
   const payloadPreview = {
@@ -221,7 +222,7 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
       <div className="dialog-card">
         <div className="dialog-header">
           <div className="dialog-title-group">
-            <span className="label-xs uppercase tracking" style={{ color: 'var(--color-warning)' }}>
+            <span className="dialog-kicker dialog-kicker-warning">
               HITL ESCALATION
             </span>
             <h3 className="headline-sm" id="dialog-title">Manager Dispatch Authorization</h3>
@@ -232,21 +233,21 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
         </div>
         
         <div className="dialog-body">
-          <div className="ticket-summary-card">
-            <div className="summary-row">
-              <span className="summary-label">Work Order ID:</span>
+          <div className="ticket-summary-card ticket-summary-grid">
+            <div className="summary-item">
+              <span className="summary-label">Work Order ID</span>
               <span className="summary-val font-mono text-accent">
                 {ticket._id.substring(0, 8).toUpperCase()}
               </span>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">Tenant:</span>
+            <div className="summary-item">
+              <span className="summary-label">Tenant</span>
               <span className="summary-val">
                 {tenantNameMap[ticket.tenantId] || ticket.tenantId}
               </span>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">Description:</span>
+            <div className="summary-item summary-item-wide">
+              <span className="summary-label">Description</span>
               <span className="summary-val">{ticket.description}</span>
             </div>
           </div>
@@ -268,54 +269,62 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
 
           {activeHitlTab === 'inputs' ? (
             <div className="tab-content" id="tab-content-inputs">
-              <div className="form-row">
-                <label className="label-sm uppercase muted" htmlFor="hitl-cost">
+              <div className="dialog-form-grid">
+                <div className="form-row">
+                  <label className="label-sm uppercase muted" htmlFor="hitl-cost">
                   Authorized Cost Estimation ($)
-                </label>
-                <input 
-                  type="number" 
-                  id="hitl-cost" 
-                  value={cost} 
-                  onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
-                  step="10" 
-                  className="dialog-input" 
-                />
-              </div>
+                  </label>
+                  <input 
+                    type="number" 
+                    id="hitl-cost" 
+                    value={cost} 
+                    onChange={(e) => setCost(parseFloat(e.target.value) || 0)}
+                    step="10" 
+                    className="dialog-input" 
+                  />
+                </div>
               
-              <div className="form-row">
-                <label className="label-sm uppercase muted" htmlFor="hitl-assignee">
-                  Assign Technician
-                </label>
-                <select 
-                  id="hitl-assignee" 
-                  className="dialog-input"
-                  value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                >
-                  {matchingTechs.map(tech => (
-                    <option key={tech._id} value={tech._id}>
-                      {tech.name} (Matched Skill: {skillNeeded} · proximity: {tech.currentLocation})
-                    </option>
-                  ))}
-                  {fallbackTechs.map(tech => (
-                    <option key={tech._id} value={tech._id}>
-                      {tech.name} (Skills: {tech.skills.join(', ')})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="form-row">
+                  <label className="label-sm uppercase muted" htmlFor="hitl-assignee">
+                    Assign Technician
+                  </label>
+                  <div className="select-shell">
+                    <select 
+                      id="hitl-assignee" 
+                      className="dialog-input"
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
+                    >
+                      {matchingTechs.map(tech => (
+                        <option key={tech._id} value={tech._id}>
+                          {tech.name} (Matched Skill: {skillNeeded} · proximity: {tech.currentLocation})
+                        </option>
+                      ))}
+                      {fallbackTechs.map(tech => (
+                        <option key={tech._id} value={tech._id}>
+                          {tech.name} (Skills: {tech.skills.join(', ')})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined select-shell-icon">expand_more</span>
+                  </div>
+                  <p className="field-hint">
+                    Recommended technicians are prioritized by the inferred required skill: {skillNeeded}.
+                  </p>
+                </div>
 
-              <div className="form-row">
-                <label className="label-sm uppercase muted" htmlFor="hitl-notes">
-                  Override / Dispatch Notes
-                </label>
-                <textarea 
-                  id="hitl-notes" 
-                  className="dialog-input" 
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add directives for the technician..."
-                />
+                <div className="form-row form-span-2">
+                  <label className="label-sm uppercase muted" htmlFor="hitl-notes">
+                    Override / Dispatch Notes
+                  </label>
+                  <textarea 
+                    id="hitl-notes" 
+                    className="dialog-input" 
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add directives for the technician..."
+                  />
+                </div>
               </div>
             </div>
           ) : (
@@ -325,7 +334,7 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
                   {JSON.stringify(payloadPreview, null, 2)}
                 </pre>
               </div>
-              <p className="label-xs muted mt-1">
+              <p className="payload-caption">
                 Generated JSON ready for Yardi Voyager / ServiceChannel API endpoints.
               </p>
             </div>
@@ -333,14 +342,13 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
 
           <div className="audit-quote">
             <div className="quote-header">
-              <span className="label-xs uppercase tracking" style={{ color: 'var(--color-warning)' }}>
+              <span className="dialog-kicker dialog-kicker-warning">
                 Lease Clause Ref
               </span>
               <span 
                 className="citation-link" 
                 id="hitl-clause-ref"
                 onClick={() => onCitationRequest(ref)}
-                style={{ cursor: 'pointer' }}
               >
                 {ref}
               </span>
@@ -350,22 +358,30 @@ export const HitlOverlay: React.FC<HitlOverlayProps> = ({
         </div>
         
         <div className="dialog-footer">
-          <button 
-            className="btn btn-secondary" 
-            id="btn-hitl-reject" 
-            onClick={handleReject}
-            disabled={approveMutation.isPending || rejectMutation.isPending}
-          >
-            Cancel Order
-          </button>
-          <button 
-            className="btn btn-primary" 
-            id="btn-hitl-approve" 
-            onClick={handleApprove}
-            disabled={approveMutation.isPending || rejectMutation.isPending}
-          >
-            {approveMutation.isPending ? 'Approving...' : 'Approve Dispatch'}
-          </button>
+          <div className="dialog-footer-meta">
+            <span className="dialog-kicker">Dispatch plan</span>
+            <span className="dialog-footer-summary">
+              {selectedAssignee?.name || 'Unassigned'} · Authorized up to ${cost}
+            </span>
+          </div>
+          <div className="dialog-footer-actions">
+            <button 
+              className="btn btn-secondary" 
+              id="btn-hitl-reject" 
+              onClick={handleReject}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+            >
+              Cancel Order
+            </button>
+            <button 
+              className="btn btn-primary" 
+              id="btn-hitl-approve" 
+              onClick={handleApprove}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+            >
+              {approveMutation.isPending ? 'Approving...' : 'Approve Dispatch'}
+            </button>
+          </div>
         </div>
       </div>
     </dialog>

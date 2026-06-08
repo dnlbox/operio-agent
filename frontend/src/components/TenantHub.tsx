@@ -120,6 +120,40 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
   };
 
   const tenantName = tenantNameMap[currentTenant] || 'Nike Store';
+  const guidanceSignals = [
+    {
+      icon: 'policy',
+      title: 'Lease-aware',
+      body: 'The agent checks tenant liability and structural responsibility before it routes work.',
+    },
+    {
+      icon: 'content_copy',
+      title: 'Duplicate-safe',
+      body: 'Active work orders are checked first to prevent double dispatch or confusing tenant updates.',
+    },
+    {
+      icon: 'conversion_path',
+      title: 'Traceable',
+      body: 'Every tool call, result, and final response is exposed to the operations team in the audit rail.',
+    },
+  ];
+  const promptSuggestions = [
+    {
+      icon: 'mode_fan',
+      label: 'HVAC issue',
+      prompt: 'The storefront AC is blowing warm air and customers are complaining about the heat.',
+    },
+    {
+      icon: 'water_drop',
+      label: 'Roof leak',
+      prompt: 'Water is dripping from the roof above the storefront entrance and the contractor estimate is $250.',
+    },
+    {
+      icon: 'escalator_warning',
+      label: 'Escalator code',
+      prompt: 'The escalator in Sector B is showing error code E-04 and needs troubleshooting.',
+    },
+  ];
 
   return (
     <div className="chat-workspace">
@@ -138,6 +172,34 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
           <button className="btn btn-secondary btn-xs" id="btn-clear-chat" onClick={clearChat}>
             Clear History
           </button>
+        </div>
+
+        <div className="chat-guidance">
+          <div className="signal-grid">
+            {guidanceSignals.map((signal) => (
+              <article key={signal.title} className="signal-chip">
+                <span className="material-symbols-outlined signal-icon">{signal.icon}</span>
+                <div>
+                  <strong>{signal.title}</strong>
+                  <p>{signal.body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="prompt-rail">
+            {promptSuggestions.map((suggestion) => (
+              <button
+                key={suggestion.label}
+                className="prompt-chip"
+                type="button"
+                onClick={() => setInputVal(suggestion.prompt)}
+              >
+                <span className="material-symbols-outlined">{suggestion.icon}</span>
+                {suggestion.label}
+              </button>
+            ))}
+          </div>
         </div>
         
         <div 
@@ -185,7 +247,7 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
           />
           <button className="btn btn-primary" id="btn-send-message" onClick={handleSend} disabled={loadingChat}>
             <span>Send</span>
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>send</span>
+            <span className="material-symbols-outlined send-button-icon">send</span>
           </button>
         </div>
       </div>
@@ -204,7 +266,7 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
             </div>
           ) : chatTimeline.length === 0 ? (
             <div className="timeline-empty">
-              <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+              <span className="material-symbols-outlined timeline-empty-icon">
                 history
               </span>
               <p className="body-sm">
@@ -234,27 +296,20 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
               return (
                 <div key={idx} className={`timeline-node timeline-${step.type}`}>
                   <div 
-                    className="node-header" 
-                    style={{ cursor: 'pointer' }}
+                    className="node-header node-header-button"
                     onClick={() => toggleNode(idx)}
                   >
                     <span className="node-number font-mono">#{idx + 1}</span>
                     <span className={`node-badge badge-${step.type}`}>{badgeText}</span>
                     <span className="node-title">{step.title}</span>
                     <span 
-                      className="material-symbols-outlined node-toggle" 
-                      style={{ 
-                        marginLeft: 'auto', 
-                        fontSize: '16px', 
-                        transition: 'transform 0.2s',
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                      }}
+                      className={`material-symbols-outlined node-toggle ${isExpanded ? 'expanded' : ''}`}
                     >
                       expand_more
                     </span>
                   </div>
                   {isExpanded && (
-                    <div className="node-details body-sm" style={{ display: 'block', paddingTop: '10px' }}>
+                    <div className="node-details body-sm node-details-expanded">
                       {isJson ? (
                         <pre className="timeline-json">{detailsText}</pre>
                       ) : (

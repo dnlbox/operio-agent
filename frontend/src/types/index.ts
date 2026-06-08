@@ -1,4 +1,14 @@
 /**
+ * Supported application route views.
+ */
+export type AppView =
+  | 'dashboard'
+  | 'tenanthub'
+  | 'intake'
+  | 'knowledge'
+  | 'staff';
+
+/**
  * Represents a work order ticket within the Operio dispatch system.
  */
 export interface Ticket {
@@ -110,7 +120,7 @@ export interface TimelineStep {
  */
 export interface AppState {
   /** The currently active panel view. */
-  activeView: 'dashboard' | 'tenanthub' | 'knowledge' | 'staff';
+  activeView: AppView;
   /** The current active tenant ID context in the chat view. */
   currentTenant: string;
   /** The corresponding lease ID resolved for the current tenant. */

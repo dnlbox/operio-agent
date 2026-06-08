@@ -130,7 +130,10 @@ export const StaffPortal: React.FC = () => {
       {/* Left Side: Staff List */}
       <section className="panel staff-list-panel">
         <div className="panel-header">
-          <h2 className="headline-sm">On-Site & External Directory</h2>
+          <h2 className="panel-title">
+            <span className="material-symbols-outlined">groups</span>
+            On-Site & External Directory
+          </h2>
         </div>
         <div className="staff-portal-list" id="portal-staff-list">
           {staffList.length === 0 ? (
@@ -152,20 +155,19 @@ export const StaffPortal: React.FC = () => {
                   onClick={() => setSelectedStaffId(person._id)}
                 >
                   <div className="staff-header">
-                    <span className="staff-name headline-sm" style={{ fontSize: '1rem', color: '#ffffff' }}>
+                    <span className="staff-name staff-portal-name">
                       {person.name}
                     </span>
                     <span 
-                      className={`status-indicator ${statusDotClass}`} 
-                      style={{ width: '7px', height: '7px', boxShadow: '0 0 6px currentColor' }}
+                      className={`status-indicator staff-portal-status-dot ${statusDotClass}`} 
                     />
                   </div>
                   <div className="staff-details body-sm">
                     <div>Primary: <span className="text-accent">{person.skills.join(', ')}</span></div>
                     <div>Shift: {person.shiftStart} - {person.shiftEnd}</div>
                   </div>
-                  <div className="staff-footer body-xs font-mono mt-1" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: activeTaskCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                  <div className="staff-footer staff-portal-footer body-xs font-mono mt-1">
+                    <span className={activeTaskCount > 0 ? 'staff-workload-warning' : 'staff-workload-ok'}>
                       {activeTaskCount} active task{activeTaskCount === 1 ? '' : 's'}
                     </span>
                     <span className="muted">{person.currentLocation}</span>
@@ -181,7 +183,7 @@ export const StaffPortal: React.FC = () => {
       <section className="panel staff-detail-panel" id="portal-detail-panel">
         {!selectedStaff ? (
           <div className="empty-state-detail">
-            <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+            <span className="material-symbols-outlined empty-state-icon">
               badge
             </span>
             <p>Select a technician from the directory to manage their profile, schedule, and view history.</p>
@@ -189,9 +191,9 @@ export const StaffPortal: React.FC = () => {
         ) : (
           <div className="staff-detail-workspace">
             {/* Profile / Info Header */}
-            <div className="detail-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="detail-section-header detail-section-header-row">
               <div>
-                <h2 className="display-lg" style={{ fontSize: '1.5rem' }}>{selectedStaff.name}</h2>
+                <h2 className="display-lg detail-section-title">{selectedStaff.name}</h2>
                 <p className="body-sm font-mono muted">ID: {selectedStaff._id}</p>
               </div>
               <div>
@@ -210,16 +212,19 @@ export const StaffPortal: React.FC = () => {
             <div className="detail-grid">
               <div className="form-group">
                 <label htmlFor="edit-staff-status">Availability Status</label>
-                <select 
-                  id="edit-staff-status" 
-                  className="form-control-glass"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as Staff['status'])}
-                >
-                  <option value="Available">Available (On-Site)</option>
-                  <option value="Busy">Busy / In-Task</option>
-                  <option value="Offline">Offline (Off-Site)</option>
-                </select>
+                <div className="select-shell">
+                  <select 
+                    id="edit-staff-status" 
+                    className="form-control-glass"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as Staff['status'])}
+                  >
+                    <option value="Available">Available (On-Site)</option>
+                    <option value="Busy">Busy / In-Task</option>
+                    <option value="Offline">Offline (Off-Site)</option>
+                  </select>
+                  <span className="material-symbols-outlined select-shell-icon">expand_more</span>
+                </div>
               </div>
 
               <div className="form-group">
@@ -258,7 +263,7 @@ export const StaffPortal: React.FC = () => {
                 />
               </div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group form-span-2">
                 <label htmlFor="edit-staff-skills">Specialized Certifications / Skills (comma separated)</label>
                 <input 
                   type="text" 
@@ -272,8 +277,8 @@ export const StaffPortal: React.FC = () => {
             </div>
 
             {/* Work Order History */}
-            <div className="history-section" style={{ marginTop: '1rem' }}>
-              <h3 className="headline-sm" style={{ fontSize: '1rem', borderBottom: '1px solid var(--brand-border)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+            <div className="history-section">
+              <h3 className="headline-sm history-section-title">
                 Assigned Work Order History
               </h3>
               
@@ -308,11 +313,11 @@ export const StaffPortal: React.FC = () => {
                         <div className="history-meta">
                           <span className={`chip ${statusClass}`}>{ticket.status}</span>
                           {ticket.sessionId ? (
-                            <span className="material-symbols-outlined text-accent" style={{ fontSize: '18px' }} title="View chat trigger context">
+                            <span className="material-symbols-outlined history-meta-icon text-accent" title="View chat trigger context">
                               forum
                             </span>
                           ) : (
-                            <span className="material-symbols-outlined muted" style={{ fontSize: '18px' }} title="Manual order (no chat trace)">
+                            <span className="material-symbols-outlined history-meta-icon muted" title="Manual order (no chat trace)">
                               info
                             </span>
                           )}
@@ -338,7 +343,7 @@ export const StaffPortal: React.FC = () => {
         <div className="dialog-card chat-history-card">
           <div className="dialog-header">
             <div className="dialog-title-group">
-              <span className="label-xs uppercase tracking" style={{ color: 'var(--color-primary)' }}>
+              <span className="dialog-kicker dialog-kicker-primary">
                 DISPATCH CONTEXT
               </span>
               <h3 className="headline-sm" id="chat-dialog-title">Triggering Conversation Context</h3>
@@ -349,8 +354,8 @@ export const StaffPortal: React.FC = () => {
           </div>
           <div className="dialog-body chat-history-body" id="chat-history-content">
             {loadingSession ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
-                <div className="spinner-inline" style={{ marginBottom: '0.5rem' }} />
+              <div className="dialog-loading-state">
+                <div className="spinner-inline dialog-loading-spinner" />
                 <p className="body-sm">Loading dispatch chat history...</p>
               </div>
             ) : sessionError || !session ? (

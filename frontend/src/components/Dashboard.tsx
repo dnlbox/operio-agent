@@ -60,7 +60,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
       <section className="metrics-grid">
         <div className="metric-card">
           <div className="metric-header">
-            <span className="label-sm uppercase muted">Total Work Orders</span>
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">receipt_long</span>
+              <span className="label-sm uppercase muted">Total Work Orders</span>
+            </div>
             <span className="trend-badge positive">Live</span>
           </div>
           <span className="metric-value" id="kpi-total-orders">{total}</span>
@@ -68,7 +71,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
         </div>
         <div className="metric-card">
           <div className="metric-header">
-            <span className="label-sm uppercase muted">Pending Approval (HITL)</span>
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">approval_delegation</span>
+              <span className="label-sm uppercase muted">Pending Approval (HITL)</span>
+            </div>
             <span className={`trend-badge warning ${pending > 0 ? 'blink' : ''}`} id="kpi-pending-badge">
               {pending} Pending
             </span>
@@ -78,7 +84,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
         </div>
         <div className="metric-card">
           <div className="metric-header">
-            <span className="label-sm uppercase muted">Auto-Dispatched</span>
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">local_shipping</span>
+              <span className="label-sm uppercase muted">Auto-Dispatched</span>
+            </div>
             <span className="trend-badge positive">Uptime 100%</span>
           </div>
           <span className="metric-value text-success" id="kpi-dispatched-orders">{dispatched}</span>
@@ -91,7 +100,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
         {/* Queue Panel */}
         <section className="panel main-panel">
           <div className="panel-header">
-            <h2 className="headline-sm">Operational Queue</h2>
+            <h2 className="panel-title">
+              <span className="material-symbols-outlined">fact_check</span>
+              Operational Queue
+            </h2>
             <div className="filter-actions">
               <button 
                 className={`chip ${activeFilter === 'all' ? 'active-filter' : ''}`} 
@@ -163,7 +175,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
         {/* Active Technicians Side Panel */}
         <aside className="panel side-panel">
           <div className="panel-header">
-            <h2 className="headline-sm">Staff Status</h2>
+            <h2 className="panel-title">
+              <span className="material-symbols-outlined">groups</span>
+              Staff Status
+            </h2>
           </div>
           <div className="staff-list" id="dashboard-staff-list">
             {staffError ? (

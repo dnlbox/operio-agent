@@ -61,7 +61,10 @@ export const KnowledgeBase: React.FC = () => {
     <div className="rag-layout">
       {/* RAG Query Console */}
       <section className="panel query-panel">
-        <h2 className="headline-sm">Elasticsearch Query Console</h2>
+        <h2 className="panel-title">
+          <span className="material-symbols-outlined">database_search</span>
+          Elasticsearch Query Console
+        </h2>
         <div className="rag-form">
           {/* 1. Search Box (Top) */}
           <div className="form-row">
@@ -80,13 +83,13 @@ export const KnowledgeBase: React.FC = () => {
           </div>
 
           {/* 2. Search Button */}
-          <button className="btn btn-primary" id="btn-run-rag" style={{ width: '100%', marginBottom: '5px' }} onClick={handleSearchSubmit}>
+          <button className="btn btn-primary rag-submit-btn" id="btn-run-rag" onClick={handleSearchSubmit}>
             Run RAG Search
           </button>
 
-          <div className="divider" style={{ borderTop: '1px dashed var(--brand-border)', margin: '10px 0' }} />
+          <div className="rag-divider" />
 
-          <h3 className="label-sm uppercase muted" style={{ marginBottom: '5px', letterSpacing: '0.05em' }}>Refine Search Results</h3>
+          <h3 className="rag-section-label">Refine Search Results</h3>
 
           {/* 3. Document Type Filter */}
           <div className="form-row">
@@ -97,6 +100,7 @@ export const KnowledgeBase: React.FC = () => {
                 id="rag-target-all"
                 onClick={() => handleTargetChange('all')}
               >
+                <span className="material-symbols-outlined">description</span>
                 All Docs
               </button>
               <button 
@@ -104,6 +108,7 @@ export const KnowledgeBase: React.FC = () => {
                 id="rag-target-leases"
                 onClick={() => handleTargetChange('leases')}
               >
+                <span className="material-symbols-outlined">gavel</span>
                 Leases
               </button>
               <button 
@@ -111,6 +116,7 @@ export const KnowledgeBase: React.FC = () => {
                 id="rag-target-manuals"
                 onClick={() => handleTargetChange('manuals')}
               >
+                <span className="material-symbols-outlined">manufacturing</span>
                 Manuals
               </button>
             </div>
@@ -166,7 +172,10 @@ export const KnowledgeBase: React.FC = () => {
 
       {/* RAG Results */}
       <section className="panel results-panel">
-        <h2 className="headline-sm">RAG Retrieval Output</h2>
+        <h2 className="panel-title">
+          <span className="material-symbols-outlined">find_in_page</span>
+          RAG Retrieval Output
+        </h2>
         <div className="rag-results-list" id="rag-results-container">
           {isFetching ? (
             <div className="loading-state">Executing RAG search target index...</div>
@@ -189,33 +198,30 @@ export const KnowledgeBase: React.FC = () => {
 
               return (
                 <div key={hit.id} className="rag-hit card">
-                  <div className="hit-header" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', width: 100 + '%', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className={`chip ${badgeClass}`} style={{ margin: 0, fontSize: '10px', padding: '2px 6px' }}>{badgeText}</span>
-                      <span className="hit-score badge-result" style={{ fontSize: '11px' }}>Match relevance: {matchPct}%</span>
+                  <div className="hit-header rag-hit-header">
+                    <div className="rag-hit-topline">
+                      <span className={`chip ${badgeClass} rag-hit-badge`}>{badgeText}</span>
+                      <span className="hit-score badge-result rag-hit-score">Match relevance: {matchPct}%</span>
                     </div>
                     <h4 
-                      className="hit-title font-mono" 
-                      style={{ margin: '4px 0 2px 0', fontSize: '13px', color: 'var(--color-text)', fontWeight: 600 }}
+                      className="hit-title font-mono rag-hit-title" 
                       dangerouslySetInnerHTML={{ __html: highlightedTitle }}
                     />
-                    <span className="muted" style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}>{metadataText}</span>
+                    <span className="muted rag-hit-meta">{metadataText}</span>
                   </div>
                   <div 
-                    className="hit-content body-sm font-mono" 
-                    style={{ marginTop: '10px', lineHeight: 1.5, color: 'var(--color-text-secondary)' }}
+                    className="hit-content body-sm font-mono rag-hit-content" 
                     dangerouslySetInnerHTML={{ __html: highlightedContent }}
                   />
                   {hit.pdfUrl && (
-                    <div style={{ marginTop: '10px', borderTop: '1px solid var(--brand-border)', paddingTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <div className="rag-hit-footer">
                       <a 
                         href={hit.pdfUrl} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="btn btn-secondary btn-xs" 
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 8px', textDecoration: 'none' }}
+                        className="btn btn-secondary btn-xs rag-hit-link" 
                       >
-                        <svg style={{ width: '12px', height: '12px' }} viewBox="0 0 24 24">
+                        <svg className="rag-hit-link-icon" viewBox="0 0 24 24">
                           <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-9 14H8.5v-1.5H7V14h1.5v-.75H7V12h3v5m4 0h-3V12h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1m4-3c0 .55-.45 1-1 1h-1.5v1H18v-1.5h-1.5V14H18v-2h-3v5h1v-2.25h1.5V13h-1.5v-.75h1.5V12h1v2c0 .55-.45 1-1 1m-3-1.5h-1v2h1v-2Z"/>
                         </svg>
                         View Source PDF
