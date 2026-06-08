@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "description": "Autonomous virtual dispatcher and SRE for brick-and-mortar operations, powered by Gemini and the Model Context Protocol.",
   "type": "module",
-  "main": "src/backend/index.ts",
+  "main": "agents/operio_agent/main.py",
   "scripts": {
-    "dev": "tsx watch src/backend/index.ts",
-    "build": "tsc",
-    "start": "node dist/backend/index.js",
-    "test": "vitest run",
-    "evaluate": "vitest run tests/evaluate.test.ts",
-    "seed": "tsx scripts/seed.ts"
+    "dev": "PYTHONPATH=agents uv run --project agents uvicorn operio_agent.main:app --host 0.0.0.0 --port 3001",
+    "build": "tsc && pnpm --filter operio-frontend build",
+    "start": "PYTHONPATH=agents uv run --project agents uvicorn operio_agent.main:app --host 0.0.0.0 --port 3001",
+    "test": "vitest run --dir tests && pnpm --filter operio-frontend test && PYTHONPATH=agents uv run --project agents pytest",
+    "evaluate": "PYTHONPATH=agents uv run --project agents pytest agents/tests/evaluate_brain.py",
+    "seed": "tsx scripts/seed.ts",
+    "frontend:dev": "pnpm --filter operio-frontend dev",
+    "frontend:build": "pnpm --filter operio-frontend build",
+    "frontend:test": "pnpm --filter operio-frontend test",
+    "frontend:review": "tsx scripts/code-review.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.13.0",

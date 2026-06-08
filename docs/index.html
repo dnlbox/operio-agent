@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operio — SRE Mall Operations Agent Documentation Portal</title>
+  <!-- Google Fonts: Manrope & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090e15;
+      --bg-card: #0d131f;
+      --color-primary: #00f2fe;
+      --color-accent: #00f2fe;
+      --color-text: #e2e8f0;
+      --color-text-muted: #94a3b8;
+      --surface-border: rgba(255, 255, 255, 0.06);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--color-text);
+      line-height: 1.6;
+      padding: 4rem 2rem;
+      background-image: radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.03) 0%, transparent 60%);
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+    header {
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 2rem;
+      text-align: center;
+    }
+    .display-lg {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 2.8rem;
+      background: linear-gradient(135deg, #ffffff, #00f2fe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-size: 1.1rem;
+      color: var(--color-text-muted);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.25rem 0.75rem;
+      border-radius: 4px;
+      background-color: rgba(0, 242, 254, 0.08);
+      color: var(--color-primary);
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+    section {
+      background-color: var(--bg-card);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    h2 {
+      font-family: 'Manrope', sans-serif;
+      color: #ffffff;
+      font-size: 1.5rem;
+      border-left: 3px solid var(--color-primary);
+      padding-left: 0.75rem;
+    }
+    p {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+    }
+    .highlight {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+    .grid-scenarios {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    .scenario-card {
+      background-color: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .scenario-title {
+      font-weight: 700;
+      color: #ffffff;
+      font-size: 1rem;
+    }
+    .tech-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      list-style: none;
+    }
+    .tech-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      background-color: rgba(255,255,255,0.03);
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      color: #94a3b8;
+    }
+    .tech-tag.highlight-tag {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .action-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    .btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.8rem 1.75rem;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), #007a99);
+      color: #090e15;
+      box-shadow: 0 4px 12px rgba(0, 242, 254, 0.2);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 242, 254, 0.3);
+    }
+    .btn-secondary {
+      background-color: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--surface-border);
+      color: var(--color-text);
+    }
+    .btn-secondary:hover {
+      background-color: rgba(255,255,255,0.08);
+    }
+    .code-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background-color: #05070b;
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--surface-border);
+      color: #00f2fe;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <span class="badge">Google Cloud Rapid Agent Hackathon Submission</span>
+      <h1 class="display-lg">Operio Agent</h1>
+      <p class="subtitle">Autonomous SRE & Virtual Dispatcher for Commercial Mall Operations</p>
+      
+      <div class="action-links">
+        <a href="https://github.com/dnlbox/operio-agent" class="btn btn-primary" target="_blank">View Codebase</a>
+        <a href="PRODUCT.md" class="btn btn-secondary">Product Vision</a>
+        <a href="ARCHITECTURE.md" class="btn btn-secondary">System Architecture</a>
+      </div>
+    </header>
+
+    <!-- Project Overview -->
+    <section>
+      <h2>The Core Vision</h2>
+      <p>
+        Commercial retail properties are managed using fragmented, manual processes. When a tenant encounters an issue (e.g., HVAC failure, pipe leak), dispatchers spend hours manually auditing negotiated lease agreements to determine liability thresholds, checking vendor compliance, and drafting work orders.
+      </p>
+      <p>
+        <span class="highlight">Operio Agent</span> is a cognitive orchestration layer built with Gemini and the Model Context Protocol (MCP). It automates the dispatcher reasoning loop, performing secure lease audits, on-site diagnostics, technician matching, and Human-in-the-Loop escalation.
+      </p>
+    </section>
+
+    <!-- Technology Stack -->
+    <section>
+      <h2>The Polyglot Architecture</h2>
+      <p>
+        Our design showcases a high-performing polyglot architecture: a **Python agent brain** running Gemini and OpenTelemetry, managing **TypeScript MCP servers** running as stdio subprocesses for database and search operations.
+      </p>
+      <ul class="tech-stack">
+        <li class="tech-tag highlight-tag">Gemini (google-genai SDK)</li>
+        <li class="tech-tag highlight-tag">Arize Phoenix (OTel Tracing)</li>
+        <li class="tech-tag highlight-tag">Model Context Protocol (MCP)</li>
+        <li class="tech-tag">FastAPI & Python 3.13</li>
+        <li class="tech-tag">MongoDB (MCP Server)</li>
+        <li class="tech-tag">Elasticsearch (MCP RAG Server)</li>
+        <li class="tech-tag">TypeScript & Node.js</li>
+      </ul>
+      <p class="body-sm">
+        Every step of the agent's reasoning loop—from lease searches to MongoDB writes—is instrumented with OpenTelemetry and traced in Arize Phoenix for complete operational auditing.
+      </p>
+    </section>
+
+    <!-- Hackathon Scenarios -->
+    <section>
+      <h2>Validated Hackathon Scenarios</h2>
+      <div class="grid-scenarios">
+        
+        <div class="scenario-card">
+          <span class="scenario-title">1. Secure Tenant Lease Audit & Chargeback (Routine HVAC)</span>
+          <p class="body-sm">
+            A tenant reports an AC failure. The agent executes a secure, tenant-isolated Elasticsearch RAG search. It detects Section 9.1 (Tenant responsible up to $1,000). The agent estimates cost ($850) and matches HVAC technician Sarah Connor. Because it is a tenant chargeback, it auto-dispatches, bypassing landlord approval gates.
+          </p>
+        </div>
+
+        <div class="scenario-card">
+          <span class="scenario-title">2. Human-in-the-Loop (HITL) Gate (Routine Common Area)</span>
+          <p class="body-sm">
+            Common area repair is requested, estimated at $250. Because the Landlord is responsible and the cost exceeds the $150 autonomous limit, the agent creates a ticket with "Pending Approval" status. The manager receives a notification and authorizes the dispatch, generating Yardi/ServiceChannel integration payloads.
+          </p>
+        </div>
+
+        <div class="scenario-card">
+          <span class="scenario-title">3. Weather-Triggered Emergency Bypass (Burst Pipe)</span>
+          <p class="body-sm">
+            During an extreme winter cold alert (-22°C), a tenant reports a burst pipe. The agent detects the critical temperature and incident severity, classifies it as an "Emergency," and triggers the Emergency Bypass. It auto-dispatches a plumber immediately to prevent structural damage, overriding standard landlord cost thresholds.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section>
+      <h2>Developer Quick Start</h2>
+      <p>Run the entire SRE command center locally using our environment setup:</p>
+      <div class="code-box">
+# 1. Spin up MongoDB, Elastic, and Arize Phoenix
+docker compose up -d
+
+# 2. Seed database indexes and mock data
+npm run seed
+
+# 3. Launch the Python FastAPI backend & MCP client
+npm run dev
+      </div>
+      <p class="body-sm">
+        The PoC command center will be available at <span class="highlight">http://localhost:3001</span>.
+      </p>
+    </section>
+
+    <footer>
+      <p class="body-sm text-center" style="text-align: center;">Operio Agent © 2026. Prepared for the Google Cloud Rapid Agent Hackathon.</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>

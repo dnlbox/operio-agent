@@ -29,6 +29,33 @@ const tenantsData = [
     managerName: 'Karen Smith',
     contactEmail: 'karen.smith@adidas.com',
     leaseId: 'lease_adidas_105'
+  },
+  {
+    _id: 'tenant_003',
+    storeName: 'Zara Store',
+    unitNumber: 'Unit 106',
+    sector: 'Sector A',
+    managerName: 'Amancio Ortega',
+    contactEmail: 'amancio.ortega@zara.com',
+    leaseId: 'lease_zara_106'
+  },
+  {
+    _id: 'tenant_004',
+    storeName: 'Puma Store',
+    unitNumber: 'Unit 107',
+    sector: 'Sector B',
+    managerName: 'Rudolf Dassler',
+    contactEmail: 'rudolf.dassler@puma.com',
+    leaseId: 'lease_puma_107'
+  },
+  {
+    _id: 'tenant_005',
+    storeName: 'Apple Store',
+    unitNumber: 'Unit 108',
+    sector: 'Sector A',
+    managerName: 'Tim Cook',
+    contactEmail: 'tcook@apple.com',
+    leaseId: 'lease_apple_108'
   }
 ];
 
@@ -89,9 +116,97 @@ async function seed() {
     await db.collection('staff').deleteMany({});
     await db.collection('staff').insertMany(staffData as any[]);
 
-    // Clear work orders
-    console.log('Clearing "work_orders" collection...');
+    // Clear and seed sessions
+    console.log('Seeding "sessions" collection...');
+    await db.collection('sessions').deleteMany({});
+    const sessionData = [
+      {
+        _id: 'session_hvac_nike',
+        tenantId: 'tenant_001',
+        messages: [
+          { role: 'user', content: 'Help, the storefront AC is blowing warm air! It is getting really hot inside.' },
+          { role: 'model', content: 'I understand. I am running a check on your storefront HVAC system. Let me check the lease agreements first to see who is responsible for this repair.' },
+          { role: 'model', content: 'According to Section 9.1 of your Nike Store lease agreement, the Landlord is responsible for major HVAC maintenance and repair. Since this is a central Carrier Model-50TJ system, I will proceed to find an available technician.' },
+          { role: 'user', content: 'Great, please dispatch someone as soon as possible.' },
+          { role: 'model', content: 'I have queried the active staff and Sarah Connor is available. I will create a work order and dispatch Sarah to your location.' }
+        ]
+      },
+      {
+        _id: 'session_plumb_adidas',
+        tenantId: 'tenant_002',
+        messages: [
+          { role: 'user', content: 'Our main restroom sink is clogged and water is starting to overflow.' },
+          { role: 'model', content: 'Acknowledged. Restroom plumbing blockages present a safety risk. Let me check the Adidas Store lease agreement.' },
+          { role: 'model', content: 'Under Section 7.4 of the lease, plumbing blockages inside the retail unit are the responsibility of the Tenant. However, since the water is overflowing, I will auto-dispatch a technician to assist immediately. Note that this will be billed as a tenant chargeback.' },
+          { role: 'user', content: 'Ok, please send them now, we will handle the cost.' },
+          { role: 'model', content: 'I have dispatched John Connor to your location to resolve the plumbing clog.' }
+        ]
+      }
+    ];
+    await db.collection('sessions').insertMany(sessionData as any[]);
+
+    // Clear and seed work orders
+    console.log('Seeding "work_orders" collection...');
     await db.collection('work_orders').deleteMany({});
+    const workOrdersData = [
+      {
+        tenantId: 'tenant_001',
+        assetId: 'Carrier Model-50TJ',
+        description: 'Storefront Carrier AC blowing warm air',
+        costEstimation: 450,
+        leaseResponsibility: 'Landlord',
+        leaseClauseRef: 'Section 9.1',
+        emergencyLevel: 'Routine',
+        status: 'Dispatched',
+        assignedTo: 'staff_001',
+        sessionId: 'session_hvac_nike',
+        externalSystemPayload: {
+          source: 'Operio-Agent',
+          externalId: 'WO-109482',
+          action: 'CREATE_AND_DISPATCH',
+          costCenter: 'Common-Area-Maintenance'
+        },
+        timeline: [
+          {
+            status: 'Created',
+            timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
+          },
+          {
+            status: 'Dispatched',
+            timestamp: new Date(Date.now() - 3600000).toISOString()
+          }
+        ]
+      },
+      {
+        tenantId: 'tenant_002',
+        assetId: 'Restroom Sink',
+        description: 'Restroom sink clogged and overflowing',
+        costEstimation: 250,
+        leaseResponsibility: 'Tenant',
+        leaseClauseRef: 'Section 7.4',
+        emergencyLevel: 'Urgent',
+        status: 'Dispatched',
+        assignedTo: 'staff_002',
+        sessionId: 'session_plumb_adidas',
+        externalSystemPayload: {
+          source: 'Operio-Agent',
+          externalId: 'WO-994182',
+          action: 'CREATE_AND_DISPATCH',
+          costCenter: 'Tenant-Reimbursable'
+        },
+        timeline: [
+          {
+            status: 'Created',
+            timestamp: new Date(Date.now() - 3600000).toISOString()
+          },
+          {
+            status: 'Dispatched',
+            timestamp: new Date().toISOString()
+          }
+        ]
+      }
+    ];
+    await db.collection('work_orders').insertMany(workOrdersData as any[]);
 
     console.log('MongoDB Seeding Completed successfully.');
   } catch (error) {
@@ -129,7 +244,8 @@ async function seed() {
         document: {
           leaseId: 'lease_nike_104',
           title: 'Nike Store Lease Section ' + (i + 1),
-          content: nikeLeaseSections[i]
+          content: nikeLeaseSections[i],
+          pdfUrl: '/assets/leases/lease_nike_104.pdf'
         }
       });
     }
@@ -141,7 +257,47 @@ async function seed() {
         document: {
           leaseId: 'lease_adidas_105',
           title: 'Adidas Store Lease Section ' + (i + 1),
-          content: adidasLeaseSections[i]
+          content: adidasLeaseSections[i],
+          pdfUrl: '/assets/leases/lease_adidas_105.pdf'
+        }
+      });
+    }
+
+    const zaraLeaseSections = parseMarkdownSections('docs/mock_data/leases/zara-lease.md');
+    for (let i = 0; i < zaraLeaseSections.length; i++) {
+      await elasticClient.index({
+        index: 'leases',
+        document: {
+          leaseId: 'lease_zara_106',
+          title: 'Zara Store Lease Section ' + (i + 1),
+          content: zaraLeaseSections[i],
+          pdfUrl: '/assets/leases/lease_zara_106.pdf'
+        }
+      });
+    }
+
+    const pumaLeaseSections = parseMarkdownSections('docs/mock_data/leases/puma-lease.md');
+    for (let i = 0; i < pumaLeaseSections.length; i++) {
+      await elasticClient.index({
+        index: 'leases',
+        document: {
+          leaseId: 'lease_puma_107',
+          title: 'Puma Store Lease Section ' + (i + 1),
+          content: pumaLeaseSections[i],
+          pdfUrl: '/assets/leases/lease_puma_107.pdf'
+        }
+      });
+    }
+
+    const appleLeaseSections = parseMarkdownSections('docs/mock_data/leases/apple-lease.md');
+    for (let i = 0; i < appleLeaseSections.length; i++) {
+      await elasticClient.index({
+        index: 'leases',
+        document: {
+          leaseId: 'lease_apple_108',
+          title: 'Apple Store Lease Section ' + (i + 1),
+          content: appleLeaseSections[i],
+          pdfUrl: '/assets/leases/lease_apple_108.pdf'
         }
       });
     }
@@ -155,7 +311,8 @@ async function seed() {
         document: {
           equipmentModel: 'Carrier Model-50TJ',
           title: 'Carrier HVAC Manual Part ' + (i + 1),
-          content: carrierManualSections[i]
+          content: carrierManualSections[i],
+          pdfUrl: '/assets/manuals/carrier-hvac.pdf'
         }
       });
     }
@@ -167,7 +324,112 @@ async function seed() {
         document: {
           equipmentModel: 'Otis Model-NPE',
           title: 'Otis Escalator Manual Part ' + (i + 1),
-          content: otisManualSections[i]
+          content: otisManualSections[i],
+          pdfUrl: '/assets/manuals/otis-escalator.pdf'
+        }
+      });
+    }
+
+    const schindlerManualSections = parseMarkdownSections('docs/mock_data/manuals/schindler-elevator.md');
+    for (let i = 0; i < schindlerManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Schindler Model-9300',
+          title: 'Schindler Elevator Manual Part ' + (i + 1),
+          content: schindlerManualSections[i],
+          pdfUrl: '/assets/manuals/schindler-elevator.pdf'
+        }
+      });
+    }
+
+    const rheemManualSections = parseMarkdownSections('docs/mock_data/manuals/rheem-hvac.md');
+    for (let i = 0; i < rheemManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Rheem Model-Classic',
+          title: 'Rheem HVAC Manual Part ' + (i + 1),
+          content: rheemManualSections[i],
+          pdfUrl: '/assets/manuals/rheem-hvac.pdf'
+        }
+      });
+    }
+
+    const honeywellManualSections = parseMarkdownSections('docs/mock_data/manuals/honeywell-thermostat.md');
+    for (let i = 0; i < honeywellManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Honeywell Model-T6',
+          title: 'Honeywell Thermostat Manual Part ' + (i + 1),
+          content: honeywellManualSections[i],
+          pdfUrl: '/assets/manuals/honeywell-thermostat.pdf'
+        }
+      });
+    }
+
+    const mcquayManualSections = parseMarkdownSections('docs/mock_data/manuals/mcquay-chiller.md');
+    for (let i = 0; i < mcquayManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'McQuay Model-WSC',
+          title: 'McQuay Chiller Manual Part ' + (i + 1),
+          content: mcquayManualSections[i],
+          pdfUrl: '/assets/manuals/mcquay-chiller.pdf'
+        }
+      });
+    }
+
+    const culliganManualSections = parseMarkdownSections('docs/mock_data/manuals/culligan-softener.md');
+    for (let i = 0; i < culliganManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Culligan Model-HE',
+          title: 'Culligan Softener Manual Part ' + (i + 1),
+          content: culliganManualSections[i],
+          pdfUrl: '/assets/manuals/culligan-softener.pdf'
+        }
+      });
+    }
+
+    const lutronManualSections = parseMarkdownSections('docs/mock_data/manuals/lutron-lighting.md');
+    for (let i = 0; i < lutronManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Lutron Model-Quantum',
+          title: 'Lutron Lighting Manual Part ' + (i + 1),
+          content: lutronManualSections[i],
+          pdfUrl: '/assets/manuals/lutron-lighting.pdf'
+        }
+      });
+    }
+
+    const koneManualSections = parseMarkdownSections('docs/mock_data/manuals/kone-escalator.md');
+    for (let i = 0; i < koneManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Kone Model-TravelMaster',
+          title: 'Kone Escalator Manual Part ' + (i + 1),
+          content: koneManualSections[i],
+          pdfUrl: '/assets/manuals/kone-escalator.pdf'
+        }
+      });
+    }
+
+    const generacManualSections = parseMarkdownSections('docs/mock_data/manuals/generac-generator.md');
+    for (let i = 0; i < generacManualSections.length; i++) {
+      await elasticClient.index({
+        index: 'manuals',
+        document: {
+          equipmentModel: 'Generac Model-Protector',
+          title: 'Generac Generator Manual Part ' + (i + 1),
+          content: generacManualSections[i],
+          pdfUrl: '/assets/manuals/generac-generator.pdf'
         }
       });
     }

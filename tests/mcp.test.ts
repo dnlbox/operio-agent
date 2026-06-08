@@ -67,7 +67,7 @@ function callMcpServer(
 }
 
 describe('MongoDB MCP Server Integration Tests', () => {
-  const mongodbServerPath = path.resolve('src/backend/mcp/mongodb-server.ts');
+  const mongodbServerPath = path.resolve('mcp_servers/mongodb-server.ts');
 
   test('should list tools successfully', async () => {
     const listReq = {
@@ -87,6 +87,7 @@ describe('MongoDB MCP Server Integration Tests', () => {
     expect(toolNames).toContain('query_active_staff');
     expect(toolNames).toContain('create_work_order');
     expect(toolNames).toContain('update_work_order_status');
+    expect(toolNames).toContain('check_active_work_orders');
   });
 
   test('should execute query_active_staff successfully', async () => {
@@ -115,10 +116,34 @@ describe('MongoDB MCP Server Integration Tests', () => {
     expect(staff[0].name).toBe('Sarah Connor');
     expect(staff[0].skills).toContain('HVAC');
   });
+
+  test('should execute check_active_work_orders successfully', async () => {
+    const callReq = {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'check_active_work_orders',
+        arguments: {
+          tenantId: 'tenant_001'
+        }
+      }
+    };
+
+    const res = await callMcpServer(mongodbServerPath, [callReq]);
+    expect(res[0]).toBeDefined();
+    expect(res[0].id).toBe(3);
+    expect(res[0].result).toBeDefined();
+    expect(res[0].result.content).toBeDefined();
+    
+    const contentText = res[0].result.content[0].text;
+    const orders = JSON.parse(contentText);
+    expect(Array.isArray(orders)).toBe(true);
+  });
 });
 
 describe('Elasticsearch MCP Server Integration Tests', () => {
-  const elasticServerPath = path.resolve('src/backend/mcp/elastic-server.ts');
+  const elasticServerPath = path.resolve('mcp_servers/elastic-server.ts');
 
   test('should list tools successfully', async () => {
     const listReq = {
@@ -144,6 +169,7 @@ describe('Elasticsearch MCP Server Integration Tests', () => {
       params: {
         name: 'search_leases',
         arguments: {
+          leaseId: 'lease_nike_104',
           query: 'HVAC liability'
         }
       }

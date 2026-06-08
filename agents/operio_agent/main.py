@@ -1,0 +1,114 @@
+"""Main application entry point for the Operio FastAPI backend."""
+
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from operio_agent.api.routes import chat, docs, staff, tickets
+from operio_agent.config import settings
+from operio_agent.core.brain import OperioBrain
+from operio_agent.core.mcp_client import McpClientManager
+from operio_agent.database.session import (
+    create_elasticsearch_client,
+    create_mongo_client,
+    get_mongo_db,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manages application database clients and MCP servers lifecycle."""
+    # 1. Initialize DB clients
+    print(f"[Lifespan] Connecting to MongoDB at {settings.mongo_uri}...")
+    mongo_client = create_mongo_client()
+    db = get_mongo_db(mongo_client)
+
+    print(
+        f"[Lifespan] Connecting to Elasticsearch at {settings.elastic_uri}..."
+    )
+    elastic_client = create_elasticsearch_client()
+
+    # Store on app.state
+    app.state.mongo_client = mongo_client
+    app.state.db = db
+    app.state.elastic_client = elastic_client
+
+    # 2. Start MCP subprocesses
+    mcp_manager = McpClientManager(
+        mongo_cmd=settings.mongo_mcp_command,
+        elastic_cmd=settings.elastic_mcp_command,
+    )
+    try:
+        await mcp_manager.start()
+        print("[Lifespan] All background MCP servers started successfully.")
+    except Exception as e:
+        print(f"[Lifespan] Critical failure during MCP startup: {e}")
+
+    app.state.mcp_manager = mcp_manager
+
+    # 3. Instantiate Reasoning Loop Brain
+    brain = OperioBrain(mcp_manager)
+    app.state.brain = brain
+
+    yield
+
+    # Cleanup: Shutdown MCP processes and close database clients
+    print("[Lifespan] Stopping background MCP servers...")
+    await mcp_manager.stop()
+    print("[Lifespan] Closing MongoDB client connection...")
+    mongo_client.close()
+    print("[Lifespan] Cleanup complete.")
+
+
+app = FastAPI(
+    title="Operio Agent API Server",
+    description="Backend API coordinating the SRE Mall Operations Agent brain.",
+    lifespan=lifespan,
+)
+
+# Enable CORS for local cross-port testing if required
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register Sub-routers
+app.include_router(chat.router, prefix="/api", tags=["Chat"])
+app.include_router(tickets.router, prefix="/api", tags=["Tickets"])
+app.include_router(staff.router, prefix="/api", tags=["Staff"])
+app.include_router(docs.router, prefix="/api", tags=["Documents"])
+
+
+@app.get("/api/health")
+def health_check() -> dict[str, Any]:
+    """Validates connectivity to backing database systems.
+
+    Returns:
+        dict[str, Any]: Health status mapping.
+    """
+    db = app.state.db
+    elastic_client = app.state.elastic_client
+
+    return {
+        "status": "ok",
+        "service": "operio-agent-orchestrator",
+        "databases": {
+            "mongodb": db.command("ping")["ok"] == 1.0,
+            "elasticsearch": bool(elastic_client.ping()),
+        },
+    }
+
+
+# Serve static files from the demo directory (Frontend interface)
+app.mount("/", StaticFiles(directory="demo", html=True), name="demo")
+
+if __name__ == "__main__":
+    import uvicorn
+
+    print("[Main] Launching FastAPI Web Server on http://localhost:3001...")
+    uvicorn.run("operio_agent.main:app", host="0.0.0.0", port=3001, reload=False)
