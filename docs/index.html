@@ -174,6 +174,25 @@
       color: #00f2fe;
       overflow-x: auto;
     }
+    .screenshot-container {
+      margin-top: 1rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      background-color: var(--bg-dark);
+    }
+    .screenshot-container:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 32px rgba(0, 242, 254, 0.12);
+      border-color: rgba(0, 242, 254, 0.3);
+    }
+    .screenshot-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -200,6 +219,17 @@
       <p>
         <span class="highlight">Operio Agent</span> is a cognitive orchestration layer built with Gemini and the Model Context Protocol (MCP). It automates the dispatcher reasoning loop, performing secure lease audits, on-site diagnostics, technician matching, and Human-in-the-Loop escalation.
       </p>
+    </section>
+
+    <!-- Real-time Dashboard Screen -->
+    <section>
+      <h2>SRE Command Center Dashboard</h2>
+      <p>
+        Operio features a centralized real-time dashboard displaying the mall's active work orders ledger, live Human-in-the-Loop manager approval alerts, and on-site staff availability status.
+      </p>
+      <div class="screenshot-container">
+        <img src="screenshots/dashboard.png" alt="Operio Command Center Dashboard" />
+      </div>
     </section>
 
     <!-- Technology Stack -->
@@ -232,6 +262,12 @@
           <p class="body-sm">
             A tenant reports an AC failure. The agent executes a secure, tenant-isolated Elasticsearch RAG search. It detects Section 9.1 (Tenant responsible up to $1,000). The agent estimates cost ($850) and matches HVAC technician Sarah Connor. Because it is a tenant chargeback, it auto-dispatches, bypassing landlord approval gates.
           </p>
+          <p class="body-sm muted">
+            Below is the Tenant Hub interface showing the chat history and the live LLM reasoning timeline step-by-step trace:
+          </p>
+          <div class="screenshot-container">
+            <img src="screenshots/tenant_hub.png" alt="Tenant Hub Chat and Agent Trace" />
+          </div>
         </div>
 
         <div class="scenario-card">
@@ -239,6 +275,12 @@
           <p class="body-sm">
             Common area repair is requested, estimated at $250. Because the Landlord is responsible and the cost exceeds the $150 autonomous limit, the agent creates a ticket with "Pending Approval" status. The manager receives a notification and authorizes the dispatch, generating Yardi/ServiceChannel integration payloads.
           </p>
+          <p class="body-sm muted">
+            Below is the HitlOverlay manager approval popup modal:
+          </p>
+          <div class="screenshot-container">
+            <img src="screenshots/hitl_overlay.png" alt="HITL Manager Dispatch Approval Modal" />
+          </div>
         </div>
 
         <div class="scenario-card">
@@ -248,6 +290,28 @@
           </p>
         </div>
 
+      </div>
+    </section>
+
+    <!-- RAG Knowledge Base Explorer -->
+    <section>
+      <h2>RAG Knowledge Explorer</h2>
+      <p>
+        Operio utilizes an Elasticsearch-backed RAG database to query, index, and retrieve clauses from lease agreements and machinery manuals. The console allows developers and property SREs to inspect vector and keyword matching.
+      </p>
+      <div class="screenshot-container">
+        <img src="screenshots/rag_explorer.png" alt="RAG Knowledge Explorer" />
+      </div>
+    </section>
+
+    <!-- Staff Portal Explorer -->
+    <section>
+      <h2>Certified Staff Directory</h2>
+      <p>
+        Manage certified on-site technicians, update their schedules/availability, customize their certifications/skills, and inspect completed and assigned work order history context.
+      </p>
+      <div class="screenshot-container">
+        <img src="screenshots/staff_management.png" alt="Staff Management Portal" />
       </div>
     </section>
 
