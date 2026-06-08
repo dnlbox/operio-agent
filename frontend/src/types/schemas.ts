@@ -32,7 +32,7 @@ export const ticketSchema = z.object({
   costEstimation: z.number(),
   leaseResponsibility: z.enum(['Tenant', 'Landlord', 'Unknown']),
   leaseClauseRef: z.string().nullable(),
-  emergencyLevel: z.enum(['Routine', 'Emergency']),
+  emergencyLevel: z.enum(['Routine', 'Urgent', 'Emergency']),
   externalSystemPayload: externalSystemPayloadSchema.optional(),
   timeline: z.array(ticketTimelineEventSchema),
   sessionId: z.string().optional(),

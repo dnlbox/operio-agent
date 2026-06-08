@@ -119,6 +119,8 @@ async function main() {
       viewport: { width: 1440, height: 900 }
     });
     const page = await context.newPage();
+    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
+    page.on('pageerror', err => console.error('BROWSER PAGEERROR:', err.message));
 
     // --- SCREENSHOT 1: Dashboard / Command Center ---
     console.log('Capturing Dashboard screenshot...');

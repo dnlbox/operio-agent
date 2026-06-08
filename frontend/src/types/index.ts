@@ -21,7 +21,7 @@ export interface Ticket {
   /** The lease clause reference determining the liability. */
   leaseClauseRef: string | null;
   /** The severity or urgency level of the work order. */
-  emergencyLevel: 'Routine' | 'Emergency';
+  emergencyLevel: 'Routine' | 'Urgent' | 'Emergency';
   /** Optional CMMS payload preview details. */
   externalSystemPayload?: {
     source: string;

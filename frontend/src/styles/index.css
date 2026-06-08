@@ -49,12 +49,16 @@
   padding: 0;
 }
 
+body, #root {
+  display: flex;
+  width: 100vw;
+  min-height: 100vh;
+}
+
 body {
   font-family: var(--font-body);
   background-color: var(--bg-dark);
   color: var(--color-text);
-  display: flex;
-  min-height: 100vh;
   overflow: hidden;
   /* Premium radial backdrop glow */
   background-image: 

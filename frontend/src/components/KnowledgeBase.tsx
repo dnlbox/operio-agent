@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '@/state/store';
 import { useQuery } from '@tanstack/react-query';
 import { searchKnowledgeBase } from '@/api/client';
@@ -12,7 +12,6 @@ import { highlightKeywords } from '@/utils/markdown';
 export const KnowledgeBase: React.FC = () => {
   const rag = useStore((state) => state.rag);
   const updateRagConfig = useStore((state) => state.updateRagConfig);
-  const setRagResults = useStore((state) => state.setRagResults);
 
   const [searchVal, setSearchVal] = useState<string>(rag.query);
   const [submittedQuery, setSubmittedQuery] = useState<string>(rag.query);
@@ -23,17 +22,6 @@ export const KnowledgeBase: React.FC = () => {
     queryFn: () => searchKnowledgeBase(submittedQuery, rag.target, rag.leaseId, rag.model),
     enabled: submittedQuery.trim().length > 0,
   });
-
-  // 2. Synchronize search results and loading state with the Zustand store
-  useEffect(() => {
-    if (submittedQuery.trim().length > 0) {
-      setRagResults(results);
-    }
-  }, [results, submittedQuery, setRagResults]);
-
-  useEffect(() => {
-    updateRagConfig({ loading: isFetching });
-  }, [isFetching, updateRagConfig]);
 
   const handleSearchSubmit = () => {
     const query = searchVal.trim();
@@ -180,16 +168,16 @@ export const KnowledgeBase: React.FC = () => {
       <section className="panel results-panel">
         <h2 className="headline-sm">RAG Retrieval Output</h2>
         <div className="rag-results-list" id="rag-results-container">
-          {rag.loading ? (
+          {isFetching ? (
             <div className="loading-state">Executing RAG search target index...</div>
           ) : isError ? (
             <div className="rag-error">Search execution failed. Make sure the database indices are seeded.</div>
-          ) : rag.results.length === 0 ? (
+          ) : results.length === 0 ? (
             <div className="rag-empty">
               <p>Enter a query in the console to inspect Elasticsearch vector and keyword matches.</p>
             </div>
           ) : (
-            rag.results.map((hit) => {
+            results.map((hit) => {
               const matchPct = Math.min(Math.round(hit.score * 100), 100);
               const isLease = hit.type === 'leases';
               const badgeText = isLease ? 'Lease Clause' : 'Equipment Manual';
