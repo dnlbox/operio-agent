@@ -287,9 +287,10 @@ export const StaffPortal: React.FC = () => {
                   <div className="body-sm muted">No work orders have been assigned to this technician.</div>
                 ) : (
                   assignedTickets.map((ticket) => {
-                    let statusClass = 'chip-success';
+                    let statusClass = 'chip-primary';
                     if (ticket.status === 'Pending Approval') statusClass = 'chip-warning';
                     else if (ticket.status === 'Rejected') statusClass = 'chip-danger';
+                    else if (ticket.status === 'Completed') statusClass = 'chip-success';
 
                     return (
                       <div 

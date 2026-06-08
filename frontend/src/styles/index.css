@@ -52,7 +52,7 @@
 body, #root {
   display: flex;
   width: 100vw;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 body {
@@ -829,7 +829,7 @@ body {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 1.5rem;
-  height: calc(100vh - 12rem);
+  max-height: calc(100vh - 12rem);
 }
 
 .card {
@@ -1147,7 +1147,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1.65fr;
   gap: 1.5rem;
-  height: calc(100vh - 12rem);
+  max-height: calc(100vh - 12rem);
 }
 
 .rag-form {
@@ -1358,23 +1358,24 @@ body {
 }
 
 .dialog-card {
-  width: 550px;
-  max-height: 85vh;
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(88vh, 920px);
   background-color: var(--bg-content);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md);
-  padding: 2rem;
+  border-radius: 28px;
+  padding: 1.5rem 0 1.5rem 1.5rem;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  overflow-y: auto;
+  gap: 1rem;
+  overflow: hidden;
 }
 
 .dialog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-right: 1.5rem;
 }
 
 .dialog-title-group {
@@ -1533,6 +1534,7 @@ textarea.dialog-input {
   gap: 0.85rem;
   border-top: 1px solid var(--brand-border);
   padding-top: 1.25rem;
+  padding-right: 1.5rem;
 }
 
 /* Toast styling */
@@ -1714,8 +1716,7 @@ dialog.dialog-overlay[open] {
   display: grid;
   grid-template-columns: 1fr 1.6fr;
   gap: 1.5rem;
-  height: calc(100vh - 12rem);
-  min-height: 550px;
+  max-height: calc(100vh - 12rem);
 }
 
 .staff-portal-list {
@@ -2125,14 +2126,12 @@ body {
 .main-content {
   padding: 2.25rem 2.5rem 2.75rem;
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .view-panel {
   flex: 1;
   gap: 1.5rem;
-  min-height: 0;
-  overflow: auto;
 }
 
 .main-header {
@@ -2349,6 +2348,116 @@ button:hover {
 .bg-warning { background: linear-gradient(90deg, #f0c38a, #d79c58); }
 .bg-success { background: linear-gradient(90deg, #84d7a7, #53ba82); }
 
+.dashboard-brief-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.95fr);
+  gap: 1rem;
+}
+
+.dashboard-brief-card,
+.dashboard-spotlight-card {
+  min-height: 0;
+}
+
+.brief-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.brief-stat-card,
+.tenant-context-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(162, 182, 204, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.brief-stat-label,
+.tenant-context-label,
+.scenario-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.brief-stat-card strong,
+.tenant-context-card strong {
+  font-family: var(--font-headings);
+  font-size: 1.6rem;
+  color: var(--color-text);
+}
+
+.brief-stat-card p,
+.tenant-context-card p,
+.dashboard-brief-note,
+.spotlight-action,
+.scenario-copy {
+  color: var(--color-text-secondary);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.dashboard-brief-note {
+  margin-top: auto;
+}
+
+.spotlight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.spotlight-topline,
+.spotlight-chip-row,
+.scenario-footer,
+.scenario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.spotlight-tenant,
+.spotlight-cost {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.spotlight-title,
+.scenario-card h3 {
+  font-family: var(--font-headings);
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.spotlight-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.spotlight-reason,
+.spotlight-staff-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.spotlight-reason .material-symbols-outlined,
+.spotlight-staff-note .material-symbols-outlined {
+  font-size: 1rem;
+  color: var(--color-primary);
+}
+
 .trend-badge,
 .chip,
 .status-pill,
@@ -2409,7 +2518,7 @@ button:hover {
   display: grid;
   grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .main-panel,
@@ -2572,6 +2681,13 @@ button:hover {
   margin-bottom: 1rem;
 }
 
+.tenant-context-grid,
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
 .signal-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2626,6 +2742,43 @@ button:hover {
 .prompt-chip .material-symbols-outlined {
   color: var(--color-primary);
   font-size: 1rem;
+}
+
+.scenario-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(162, 182, 204, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.scenario-icon-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(143, 211, 255, 0.08);
+  color: var(--color-primary);
+}
+
+.scenario-header {
+  align-items: flex-start;
+}
+
+.scenario-header > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.scenario-footer {
+  margin-top: auto;
+  align-items: center;
 }
 
 .chat-messages,
@@ -2921,16 +3074,8 @@ button:hover {
   background: transparent;
 }
 
-.dialog-card,
 .citation-drawer {
   border-radius: 28px;
-}
-
-.dialog-card {
-  width: min(760px, calc(100vw - 2rem));
-  max-height: min(88vh, 920px);
-  padding: 1.35rem;
-  gap: 1rem;
 }
 
 .drawer-body,
@@ -2943,6 +3088,7 @@ button:hover {
   flex-direction: column;
   gap: 1rem;
   min-height: 0;
+  padding-right: 1.5rem;
 }
 
 .ticket-summary-card,
@@ -3361,13 +3507,10 @@ textarea.dialog-input {
   flex-direction: column;
 }
 
-.main-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.side-panel {
+.main-panel,
+.side-panel,
+.staff-list-panel,
+.staff-detail-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -3438,6 +3581,7 @@ textarea.dialog-input {
 }
 
 @media (max-width: 1200px) {
+  .dashboard-brief-grid,
   .workspace-grid,
   .rag-layout,
   .staff-portal-grid,
@@ -3446,6 +3590,8 @@ textarea.dialog-input {
     grid-template-columns: 1fr;
   }
 
+  .tenant-context-grid,
+  .scenario-grid,
   .signal-grid {
     grid-template-columns: 1fr;
   }
@@ -3475,6 +3621,10 @@ textarea.dialog-input {
 
   .main-header,
   .metrics-grid,
+  .dashboard-brief-grid,
+  .brief-stat-grid,
+  .tenant-context-grid,
+  .scenario-grid,
   .flow-overview,
   .form-grid-2,
   .detail-grid {

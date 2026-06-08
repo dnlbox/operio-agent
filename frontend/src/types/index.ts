@@ -21,7 +21,7 @@ export interface Ticket {
   /** A textual description of the reported issue. */
   description: string;
   /** The current status of the work order. */
-  status: 'Pending Approval' | 'Dispatched' | 'Rejected' | 'Created';
+  status: 'Pending Approval' | 'Dispatched' | 'Rejected' | 'Created' | 'In Progress' | 'Completed';
   /** The ID of the technician assigned to this ticket, if any. */
   assignedTo: string | null;
   /** The estimated cost of the repair. */

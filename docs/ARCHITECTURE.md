@@ -12,7 +12,7 @@ This document describes the technical stack, system components, database schemas
   - **MongoDB MCP Server:** Spawned as a Node.js stdio subprocess, managing database collections (Tenants, Staff, Work Orders, Sessions).
   - **Elasticsearch MCP Server:** Spawned as a Node.js stdio subprocess, managing lease indexes and manufacturer manuals with tenant-level filters.
 - **Observability & Tracing:** **Arize / Phoenix** (using `openinference-instrumentation-google-genai` and OpenTelemetry to capture trace trees, latencies, and tool execution metrics).
-- **Frontend Interface:** Beautiful glassmorphic Single Page App built using HTML5, Vanilla CSS, and modern client-side Javascript.
+- **Frontend Interface:** Glassmorphic single-page application built with React 19, TypeScript, Vite, and a functional Zustand state layer.
 
 ---
 

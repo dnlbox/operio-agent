@@ -269,11 +269,83 @@ EVAL_DATASET = [
                 "text": "I have created a routine work order for HVAC check under Section 9.1."
             }
         ]
+    },
+    {
+        "id": 9,
+        "tenant_id": "tenant_001",
+        "lease_id": "lease_nike_104",
+        "message": "Our custom display lighting is flickering across two storefront zones and bulbs we replaced yesterday are already burning out again. Could this be our fixtures or the landlord panel feeding the store?",
+        "category": "Ambiguous Liability",
+        "mock_turns": [
+            {
+                "type": "tool",
+                "calls": [{"name": "search_leases", "args": {"query": "custom display lighting flickering across multiple storefront zones landlord panel feeder"}}]
+            },
+            {
+                "type": "tool",
+                "calls": [{"name": "search_manuals", "args": {"equipment_model": "Lutron Model-Quantum", "query": "multi-zone flicker repeated bulb burnout upstream panel voltage fluctuation"}}]
+            },
+            {
+                "type": "text",
+                "text": "Section 9.2 says Nike maintains store fixtures, lamps, and drivers, while the landlord owns the upstream feeder and panel. Because multiple runs are flickering and replacement bulbs failed again, this looks ambiguous and likely requires upstream electrical inspection before final liability is assigned."
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "tenant_id": "tenant_001",
+        "lease_id": "lease_nike_104",
+        "message": "We are planning a sneaker launch next Friday and expect a long customer line in the corridor outside the store. What approvals do we need?",
+        "category": "Policy Guidance",
+        "mock_turns": [
+            {
+                "type": "tool",
+                "calls": [{"name": "search_leases", "args": {"query": "special event corridor queue launch approval queue plan"}}]
+            },
+            {
+                "type": "text",
+                "text": "Under Section 13.1, a corridor queue requires landlord review at least 10 business days in advance, plus an event operations plan covering attendance, barricades, security, and overflow handling. This is a policy and approval workflow, so I have not created a maintenance work order."
+            }
+        ]
+    },
+    {
+        "id": 11,
+        "tenant_id": "tenant_002",
+        "lease_id": "lease_adidas_105",
+        "message": "Our digital signage lighting keeps burning out every few days and now multiple fixtures are flickering together. Is this still our problem?",
+        "category": "Demarcation",
+        "mock_turns": [
+            {
+                "type": "tool",
+                "calls": [{"name": "search_leases", "args": {"query": "display lighting repeated burnouts multiple fixtures flickering panel feeder demarcation"}}]
+            },
+            {
+                "type": "text",
+                "text": "Section 11.3 makes Adidas responsible for decorative fixtures and drivers, but keeps upstream feeders and base-building panels with the landlord. Because multiple fixtures are failing together, the issue should not be treated as a simple lamp replacement until the upstream supply is inspected."
+            }
+        ]
+    },
+    {
+        "id": 12,
+        "tenant_id": "tenant_001",
+        "lease_id": "lease_nike_104",
+        "message": "Can we put branded stanchions in the mall corridor ourselves if the line gets large during the launch?",
+        "category": "Policy Guidance",
+        "mock_turns": [
+            {
+                "type": "tool",
+                "calls": [{"name": "search_leases", "args": {"query": "corridor stanchions common area queue written approval"}}]
+            },
+            {
+                "type": "text",
+                "text": "No. Section 13.1 says Nike may not independently occupy corridor space or form exterior lines in common areas without written landlord approval and an approved queue plan."
+            }
+        ]
     }
 ]
 
 # Generate synthetic scenarios to make a total of 20 test points
-for i in range(9, 21):
+for i in range(13, 21):
     EVAL_DATASET.append({
         "id": i,
         "tenant_id": "tenant_001",

@@ -8,11 +8,12 @@ Operio Agent is an intelligent orchestration layer built on top of commercial re
 
 ## 📖 Table of Contents
 
-- [Product Vision & Personas](file:///Users/titan/Code/operio-agent/docs/PRODUCT.md)
-- [Technical Architecture & Data Schemas](file:///Users/titan/Code/operio-agent/docs/ARCHITECTURE.md)
-- [Hackathon Track & Submission Brief](file:///Users/titan/Code/operio-agent/docs/HACKATHON.md)
-- [Contributing Guidelines](file:///Users/titan/Code/operio-agent/CONTRIBUTING.md)
-- [Privacy Policy](file:///Users/titan/Code/operio-agent/PRIVACY.md)
+- [Product Vision & Personas](docs/PRODUCT.md)
+- [Technical Architecture & Data Schemas](docs/ARCHITECTURE.md)
+- [Arize Phoenix Evaluation Plan](docs/ARIZE_EVALS.md)
+- [Hackathon Track & Submission Brief](docs/HACKATHON.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Privacy Policy](PRIVACY.md)
 
 ---
 
@@ -29,7 +30,7 @@ Operio Agent coordinates tenant requests, audits leases, and dispatches technici
                               v REST / WebSockets
 +-----------------------------------------------------------+
 |                    AGENT ORCHESTRATOR                     |
-|           Node.js Hono TypeScript Backend                 |
+|           FastAPI Python Orchestrator                     |
 |  Reasoning Loop: Plan -> Tool Calls -> Execute -> Respond |
 +-----------------------------+-----------------------------+
                               |
@@ -56,6 +57,8 @@ Operio Agent coordinates tenant requests, audits leases, and dispatches technici
 
 - Node.js v22+
 - pnpm v9+
+- Python 3.13+
+- `uv`
 
 ### 2. Installation
 
@@ -65,10 +68,11 @@ pnpm install
 
 ### 3. Development Commands
 
-- `pnpm run dev` — Starts the Hono backend server in watch mode.
-- `pnpm run build` — Compiles TypeScript into `dist/`.
-- `pnpm run start` — Runs the compiled backend production build.
-- `pnpm run test` — Executes unit tests.
+- `pnpm run dev` — Starts the FastAPI orchestrator on `http://localhost:3001`.
+- `pnpm --filter operio-frontend dev` — Starts the Vite SPA locally.
+- `pnpm run frontend:build` — Builds the frontend into `demo/`.
+- `pnpm run frontend:review` — Runs local static review checks for aliases, JSDoc, and loop discipline.
+- `pnpm run test` — Runs frontend tests plus backend pytest suites.
 - `pnpm run evaluate` — Triggers the evaluation harness against mock scenarios.
 - `pnpm run seed` — Resets and seeds the mock databases.
 
@@ -76,4 +80,4 @@ pnpm install
 
 ## ⚖️ License
 
-Distributed under the Apache License 2.0. See [LICENSE](file:///Users/titan/Code/operio-agent/LICENSE) for more details.
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for more details.

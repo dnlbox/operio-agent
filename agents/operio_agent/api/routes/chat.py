@@ -1,12 +1,16 @@
 """API route for chat reasoning operations."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Tuple
 from fastapi import APIRouter, Depends, HTTPException
+from opentelemetry import trace
 from pymongo.database import Database
+from phoenix.otel import SpanAttributes, using_session
 
 from operio_agent.api.deps import get_brain, get_db
 from operio_agent.api.schemas.chat import ChatRequest
+from operio_agent.core.session_analysis import build_turn_record
 from operio_agent.core.brain import (
     OperioBrain,
     active_lease_id,
@@ -16,6 +20,7 @@ from operio_agent.core.brain import (
 )
 
 router = APIRouter()
+tracer = trace.get_tracer("operio_agent.chat")
 
 
 def get_tenant_lease_context(db: Database, tenant_id: str) -> Tuple[str, str]:
@@ -79,27 +84,68 @@ async def chat_endpoint(
 
     if session:
         messages = session.get("messages", [])
+        turns = session.get("turns", [])
     else:
         messages = []
+        turns = []
         # Inject welcome context or starting user message
         db.sessions.insert_one(
-            {"_id": session_id, "tenantId": req.tenant_id, "messages": []}
+            {"_id": session_id, "tenantId": req.tenant_id, "messages": [], "turns": []}
         )
 
     # Append the incoming user message
     messages.append({"role": "user", "content": req.message})
+    turn_number = sum(1 for message in messages if message.get("role") == "user")
 
     # 3. Run the Agent Loop
     try:
-        result = await brain.run_reasoning_loop(messages, weather_desc)
+        with using_session(session_id):
+            with tracer.start_as_current_span(
+                "operio.chat_turn",
+                attributes={
+                    SpanAttributes.OPENINFERENCE_SPAN_KIND: "CHAIN",
+                    SpanAttributes.SESSION_ID: session_id,
+                    SpanAttributes.INPUT_VALUE: req.message,
+                    "operio.tenant.id": req.tenant_id,
+                    "operio.lease.id": lease_id,
+                    "operio.turn.number": turn_number,
+                    "operio.weather.context": weather_desc,
+                },
+            ) as turn_span:
+                result = await brain.run_reasoning_loop(messages, weather_desc)
+                turn_record = build_turn_record(
+                    turn_number, req.message, result["response_text"], result["timeline"]
+                )
+                turn_span.set_attribute(
+                    SpanAttributes.OUTPUT_VALUE, result["response_text"][:1000]
+                )
+                turn_span.set_attribute(
+                    "operio.turn.resolution", turn_record["resolution"]
+                )
+                turn_span.set_attribute(
+                    "operio.turn.tags", ",".join(turn_record["tags"])
+                )
     except Exception as e:
         print(f"[Main] Agent execution loop failed: {e}")
         raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
 
     # 4. Save updated history to MongoDB
     messages.append({"role": "model", "content": result["response_text"]})
+    turns.append(turn_record)
     db.sessions.update_one(
-        {"_id": session_id}, {"$set": {"messages": messages}}
+        {
+            "_id": session_id
+        },
+        {
+            "$set": {
+                "tenantId": req.tenant_id,
+                "messages": messages,
+                "turns": turns,
+                "lastTags": turn_record["tags"],
+                "lastResolution": turn_record["resolution"],
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }
+        },
     )
 
     return {
@@ -128,4 +174,3 @@ def get_session(session_id: str, db: Database = Depends(get_db)) -> dict[str, An
         raise HTTPException(status_code=404, detail="Session not found")
     session["_id"] = str(session["_id"])
     return session
-

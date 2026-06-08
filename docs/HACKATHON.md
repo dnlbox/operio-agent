@@ -5,7 +5,7 @@ This document compiles the official details, tracks, rules, and requirements for
 ## 📅 Timeline & Status
 *   **Start Date:** May 5, 2026
 *   **Submission Deadline:** **June 11, 2026, at 2:00 PM PDT** (5:00 PM EDT)
-*   **Current Date:** May 28, 2026 (approximately **14 days** remaining)
+*   **Current Date:** June 8, 2026 (approximately **3 days** remaining)
 *   **Location:** Online / Public
 
 ---
@@ -54,3 +54,21 @@ Our project should speak directly to the backgrounds of the judges, who include:
 *   **Google Cloud:** Partner Engineers, Solutions Architects, and ISV specialists (e.g., Merlin Yamssi, Jon Pawlowski). They want to see clean integrations of Gemini and Google Cloud Agent Builder.
 *   **Arize:** Head of Solutions Strategy (Clay Miner) and Director of Partner Solutions (Richard Young). They will be highly impressed by robust tracing, guardrails, and accuracy evaluation (which we can trace using Phoenix).
 *   **Elastic & MongoDB:** PMs and Developer Relations Directors (e.g., Anish Mathur, Daoud Farooqi). They look for smart, efficient search querying and clean transactional database operations.
+
+---
+
+## 🎯 Recommended Submission Strategy
+*   **Primary Track Recommendation:** **Elastic**
+*   **Why Elastic is the strongest wedge:** Operio's most differentiated moment is turning unstructured leases and equipment manuals into operational decisions. Semantic lease auditing is what makes the product feel novel instead of like another ticketing dashboard.
+*   **How to frame MongoDB and Arize:** Present MongoDB as the transactional control plane for work orders and staff state, and Phoenix as the trust layer that makes autonomous decisions reviewable.
+*   **Three proof points to emphasize in the demo:**
+    1.  The agent retrieves the exact lease/manual evidence behind a decision.
+    2.  The agent autonomously routes routine work but pauses high-cost landlord-liable requests behind HITL.
+    3.  The entire reasoning chain is inspectable through trace and payload surfaces.
+
+## ⏱️ Final 72-Hour Sprint
+1.  Polish the live demo path around three incidents: HVAC dispatch, roof leak approval gate, and manual-assisted escalator diagnosis.
+2.  Ship a stable hosted deployment and verify Phoenix, Elastic retrieval, and MongoDB-backed ticket transitions on that environment.
+3.  Record a tight 3-minute demo that shows intake, trace, approval, and final dispatch without dead time.
+4.  Make the GitHub repo self-explanatory: current architecture, working setup commands, open-source license, screenshots, and track choice.
+5.  Submit with a crisp one-sentence positioning line: "Operio is an autonomous mall operations agent that turns leases, manuals, and staff state into traceable dispatch decisions."

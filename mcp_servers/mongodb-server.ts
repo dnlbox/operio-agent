@@ -231,6 +231,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         technician_id?: string;
       };
 
+      if (!wo_id || typeof wo_id !== 'string' || wo_id.trim() === '') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Invalid or missing work order ID (wo_id): ${wo_id}`
+            }
+          ]
+        };
+      }
+
       console.error(`[MongoDB MCP] Updating work order: ${wo_id} to status: ${status}`);
 
       const updatePayload: any = {

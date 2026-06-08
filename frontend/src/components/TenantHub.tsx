@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore, tenantNameMap } from '@/state/store';
-import { useMutation } from '@tanstack/react-query';
-import { sendChatMessage } from '@/api/client';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { sendChatMessage, fetchTickets } from '@/api/client';
 import { parseMarkdown } from '@/utils/markdown';
+import { Ticket } from '@/types';
 
 /**
  * Props definition for the TenantHub component.
@@ -31,8 +32,17 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
   const setChatResponse = useStore((state) => state.setChatResponse);
   const clearChat = useStore((state) => state.clearChat);
 
+  const [activeRightTab, setActiveRightTab] = useState<'trace' | 'history'>('trace');
   const [inputVal, setInputVal] = useState<string>('');
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
+
+  const { data: ticketsList = [] } = useQuery<Ticket[]>({
+    queryKey: ['tickets'],
+    queryFn: fetchTickets,
+    refetchInterval: 10000,
+  });
+
+  const tenantTickets = ticketsList.filter(t => t.tenantId === currentTenant);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timelineEndRef = useRef<HTMLDivElement>(null);
@@ -120,6 +130,11 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
   };
 
   const tenantName = tenantNameMap[currentTenant] || 'Nike Store';
+  const openTenantTickets = tenantTickets.filter(
+    (ticket) => ticket.status !== 'Completed' && ticket.status !== 'Rejected'
+  );
+  const pendingTenantTickets = tenantTickets.filter((ticket) => ticket.status === 'Pending Approval');
+  const dispatchedTenantTickets = tenantTickets.filter((ticket) => ticket.status === 'Dispatched');
   const guidanceSignals = [
     {
       icon: 'policy',
@@ -142,16 +157,41 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
       icon: 'mode_fan',
       label: 'HVAC issue',
       prompt: 'The storefront AC is blowing warm air and customers are complaining about the heat.',
+      route: 'Straight-through dispatch',
+      value: 'Shows tenant-liable routing and technician matching without waiting for approval.',
+      emphasis: 'success',
     },
     {
       icon: 'water_drop',
       label: 'Roof leak',
       prompt: 'Water is dripping from the roof above the storefront entrance and the contractor estimate is $250.',
+      route: 'Landlord approval gate',
+      value: 'Best proof of HITL guardrails, liability reasoning, and approval packet generation.',
+      emphasis: 'warning',
     },
     {
       icon: 'escalator_warning',
       label: 'Escalator code',
       prompt: 'The escalator in Sector B is showing error code E-04 and needs troubleshooting.',
+      route: 'Manual-assisted diagnosis',
+      value: 'Highlights retrieval over equipment manuals before any dispatch is finalized.',
+      emphasis: 'neutral',
+    },
+    {
+      icon: 'lightbulb',
+      label: 'Lighting demarcation',
+      prompt: 'Our custom display lighting is flickering across two storefront zones and bulbs we replaced yesterday are already burning out again. Could this be our fixtures or the landlord panel feeding the store?',
+      route: 'Ambiguous liability reasoning',
+      value: 'Best case for showing the model separating store-owned fixtures from landlord-owned electrical infrastructure.',
+      emphasis: 'warning',
+    },
+    {
+      icon: 'campaign',
+      label: 'Launch event',
+      prompt: 'We are planning a sneaker launch next Friday and expect a long customer line in the corridor outside the store. What approvals, queue controls, or landlord coordination do we need?',
+      route: 'Policy and approval guidance',
+      value: 'Shows the chatbot can reason over lease operations rules without forcing every tenant conversation into a work order.',
+      emphasis: 'success',
     },
   ];
 
@@ -175,6 +215,24 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
         </div>
 
         <div className="chat-guidance">
+          <div className="tenant-context-grid">
+            <article className="tenant-context-card">
+              <span className="tenant-context-label">Open for this tenant</span>
+              <strong>{openTenantTickets.length}</strong>
+              <p>Active incidents already attached to {tenantName}.</p>
+            </article>
+            <article className="tenant-context-card">
+              <span className="tenant-context-label">Awaiting approval</span>
+              <strong>{pendingTenantTickets.length}</strong>
+              <p>Requests currently paused behind landlord review.</p>
+            </article>
+            <article className="tenant-context-card">
+              <span className="tenant-context-label">In field motion</span>
+              <strong>{dispatchedTenantTickets.length}</strong>
+              <p>Orders already handed off to technicians or vendors.</p>
+            </article>
+          </div>
+
           <div className="signal-grid">
             {guidanceSignals.map((signal) => (
               <article key={signal.title} className="signal-chip">
@@ -198,6 +256,33 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
                 <span className="material-symbols-outlined">{suggestion.icon}</span>
                 {suggestion.label}
               </button>
+            ))}
+          </div>
+
+          <div className="scenario-grid">
+            {promptSuggestions.map((suggestion) => (
+              <article key={suggestion.label} className="scenario-card">
+                <div className="scenario-header">
+                  <div className="scenario-icon-shell">
+                    <span className="material-symbols-outlined">{suggestion.icon}</span>
+                  </div>
+                  <div>
+                    <span className="scenario-label">{suggestion.label}</span>
+                    <h3>{suggestion.route}</h3>
+                  </div>
+                </div>
+                <p className="scenario-copy">{suggestion.value}</p>
+                <div className="scenario-footer">
+                  <span className={`status-pill ${suggestion.emphasis}`}>{suggestion.route}</span>
+                  <button
+                    className="btn btn-secondary btn-xs"
+                    type="button"
+                    onClick={() => setInputVal(suggestion.prompt)}
+                  >
+                    Load prompt
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         </div>
@@ -252,77 +337,124 @@ export const TenantHub: React.FC<TenantHubProps> = ({ onCitationRequest }) => {
         </div>
       </div>
 
-      {/* Agent Decisions Timeline Side Panel */}
+      {/* Agent Decisions & Ticket History Panel */}
       <div className="timeline-container card">
-        <div className="timeline-header">
-          <h3 className="headline-sm">Agent Decisions & Trace</h3>
-          <span className="trend-badge positive">Live Pipeline</span>
+        <div className="timeline-header" style={{ paddingBottom: 0 }}>
+          <div className="tab-header" style={{ borderBottom: 'none', margin: 0, width: '100%' }}>
+            <button 
+              className={`tab-btn ${activeRightTab === 'trace' ? 'active' : ''}`}
+              onClick={() => setActiveRightTab('trace')}
+            >
+              Decisions & Trace
+            </button>
+            <button 
+              className={`tab-btn ${activeRightTab === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveRightTab('history')}
+            >
+              Order History
+            </button>
+          </div>
         </div>
-        <div className="timeline-body" id="agent-decisions-timeline">
-          {loadingChat ? (
-            <div className="timeline-loading">
-              <div className="spinner" />
-              <p className="body-sm mt-2">Gemini reasoning loop running. Call trace loading...</p>
-            </div>
-          ) : chatTimeline.length === 0 ? (
-            <div className="timeline-empty">
-              <span className="material-symbols-outlined timeline-empty-icon">
-                history
-              </span>
-              <p className="body-sm">
-                Submit a message to view the agent's step-by-step reasoning and MCP tool traces in real-time.
-              </p>
-            </div>
-          ) : (
-            chatTimeline.map((step, idx) => {
-              let badgeText = 'THOUGHT';
-              if (step.type === 'tool_call') badgeText = 'MCP CALL';
-              if (step.type === 'tool_result') badgeText = 'RESULT';
-              if (step.type === 'response') badgeText = 'OUTPUT';
-              if (step.type === 'warning') badgeText = 'GUARDRAIL';
 
-              let detailsText = step.details;
-              let isJson = false;
-              try {
-                const json = JSON.parse(step.details);
-                detailsText = JSON.stringify(json, null, 2);
-                isJson = true;
-              } catch (e) {
-                // Keep as plain text
-              }
+        {activeRightTab === 'trace' ? (
+          <div className="timeline-body" id="agent-decisions-timeline">
+            {loadingChat ? (
+              <div className="timeline-loading">
+                <div className="spinner" />
+                <p className="body-sm mt-2">Gemini reasoning loop running. Call trace loading...</p>
+              </div>
+            ) : chatTimeline.length === 0 ? (
+              <div className="timeline-empty">
+                <span className="material-symbols-outlined timeline-empty-icon">
+                  history
+                </span>
+                <p className="body-sm">
+                  Submit a message to view the agent's step-by-step reasoning and MCP tool traces in real-time.
+                </p>
+              </div>
+            ) : (
+              chatTimeline.map((step, idx) => {
+                let badgeText = 'THOUGHT';
+                if (step.type === 'tool_call') badgeText = 'MCP CALL';
+                if (step.type === 'tool_result') badgeText = 'RESULT';
+                if (step.type === 'response') badgeText = 'OUTPUT';
+                if (step.type === 'warning') badgeText = 'GUARDRAIL';
 
-              const isExpanded = expandedNodes[idx] || false;
+                let detailsText = step.details;
+                let isJson = false;
+                try {
+                  const json = JSON.parse(step.details);
+                  detailsText = JSON.stringify(json, null, 2);
+                  isJson = true;
+                } catch (e) {
+                  // Keep as plain text
+                }
 
-              return (
-                <div key={idx} className={`timeline-node timeline-${step.type}`}>
-                  <div 
-                    className="node-header node-header-button"
-                    onClick={() => toggleNode(idx)}
-                  >
-                    <span className="node-number font-mono">#{idx + 1}</span>
-                    <span className={`node-badge badge-${step.type}`}>{badgeText}</span>
-                    <span className="node-title">{step.title}</span>
-                    <span 
-                      className={`material-symbols-outlined node-toggle ${isExpanded ? 'expanded' : ''}`}
+                const isExpanded = expandedNodes[idx] || false;
+
+                return (
+                  <div key={idx} className={`timeline-node timeline-${step.type}`}>
+                    <div 
+                      className="node-header node-header-button"
+                      onClick={() => toggleNode(idx)}
                     >
-                      expand_more
-                    </span>
-                  </div>
-                  {isExpanded && (
-                    <div className="node-details body-sm node-details-expanded">
-                      {isJson ? (
-                        <pre className="timeline-json">{detailsText}</pre>
-                      ) : (
-                        <p dangerouslySetInnerHTML={{ __html: detailsText.replace(/\n/g, '<br>') }} />
-                      )}
+                      <span className="node-number font-mono">#{idx + 1}</span>
+                      <span className={`node-badge badge-${step.type}`}>{badgeText}</span>
+                      <span className="node-title">{step.title}</span>
+                      <span 
+                        className={`material-symbols-outlined node-toggle ${isExpanded ? 'expanded' : ''}`}
+                      >
+                        expand_more
+                      </span>
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-          <div ref={timelineEndRef} />
-        </div>
+                    {isExpanded && (
+                      <div className="node-details body-sm node-details-expanded">
+                        {isJson ? (
+                          <pre className="timeline-json">{detailsText}</pre>
+                        ) : (
+                          <p dangerouslySetInnerHTML={{ __html: detailsText.replace(/\n/g, '<br>') }} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            <div ref={timelineEndRef} />
+          </div>
+        ) : (
+          <div className="timeline-body" id="tenant-order-history">
+            {tenantTickets.length === 0 ? (
+              <div className="body-sm muted text-center" style={{ padding: '2rem 0' }}>
+                No work orders found for your store.
+              </div>
+            ) : (
+              tenantTickets.map((ticket) => {
+                let statusClass = 'chip-primary';
+                if (ticket.status === 'Pending Approval') statusClass = 'chip-warning';
+                else if (ticket.status === 'Rejected') statusClass = 'chip-danger';
+                else if (ticket.status === 'Completed') statusClass = 'chip-success';
+
+                return (
+                  <div key={ticket._id} className="history-row" style={{ cursor: 'default' }}>
+                    <div className="history-info">
+                      <span className="history-id font-mono">
+                        {ticket._id.substring(0, 8).toUpperCase()}
+                      </span>
+                      <span className="history-desc">{ticket.description}</span>
+                      <span className="history-subtext muted">
+                        {ticket.assetId} · Est: ${ticket.costEstimation}
+                      </span>
+                    </div>
+                    <div className="history-meta">
+                      <span className={`chip ${statusClass}`}>{ticket.status}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

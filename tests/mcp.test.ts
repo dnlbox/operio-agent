@@ -140,6 +140,69 @@ describe('MongoDB MCP Server Integration Tests', () => {
     const orders = JSON.parse(contentText);
     expect(Array.isArray(orders)).toBe(true);
   });
+
+  test('should update work order status successfully and validate input', async () => {
+    // 1. Create a work order first
+    const createReq = {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'create_work_order',
+        arguments: {
+          tenantId: 'tenant_001',
+          assetId: 'Carrier Model-50TJ',
+          description: 'Storefront Carrier AC blowing warm air',
+          costEstimation: 450,
+          leaseResponsibility: 'Landlord',
+          leaseClauseRef: 'Section 9.1',
+          emergencyLevel: 'Routine'
+        }
+      }
+    };
+    const resCreate = await callMcpServer(mongodbServerPath, [createReq]);
+    const createResult = JSON.parse(resCreate[0].result.content[0].text);
+    expect(createResult.success).toBe(true);
+    const woId = createResult.wo_id;
+    expect(woId).toBeDefined();
+
+    // 2. Update status of the retrieved order
+    const updateReq = {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: {
+        name: 'update_work_order_status',
+        arguments: {
+          wo_id: woId,
+          status: 'Completed'
+        }
+      }
+    };
+    const resUpdate = await callMcpServer(mongodbServerPath, [updateReq]);
+    expect(resUpdate[0].result).toBeDefined();
+    const updateResult2 = JSON.parse(resUpdate[0].result.content[0].text);
+    expect(updateResult2.success).toBe(true);
+    expect(updateResult2.workOrder.status).toBe('Completed');
+
+    // 3. Update status with invalid/missing wo_id
+    const invalidReq = {
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: {
+        name: 'update_work_order_status',
+        arguments: {
+          wo_id: '',
+          status: 'Completed'
+        }
+      }
+    };
+    const resInvalid = await callMcpServer(mongodbServerPath, [invalidReq]);
+    expect(resInvalid[0].result).toBeDefined();
+    expect(resInvalid[0].result.isError).toBe(true);
+    expect(resInvalid[0].result.content[0].text).toContain('Invalid or missing work order ID');
+  });
 });
 
 describe('Elasticsearch MCP Server Integration Tests', () => {

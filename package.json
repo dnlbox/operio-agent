@@ -14,14 +14,13 @@
     "frontend:dev": "pnpm --filter operio-frontend dev",
     "frontend:build": "pnpm --filter operio-frontend build",
     "frontend:test": "pnpm --filter operio-frontend test",
-    "frontend:review": "tsx scripts/code-review.ts"
+    "frontend:review": "tsx scripts/code-review.ts",
+    "clean": "rm -rf node_modules frontend/node_modules demo dist frontend/dist .venv .pytest_cache && find . -name \"__pycache__\" -type d -exec rm -rf {} +"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.13.0",
-    "@hono/node-server": "^1.11.2",
     "@modelcontextprotocol/sdk": "^0.6.0",
     "dotenv": "^16.4.5",
-    "hono": "^4.3.11",
     "mongodb": "^6.6.2"
   },
   "devDependencies": {

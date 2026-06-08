@@ -3,11 +3,13 @@
 import contextvars
 import json
 import sys
+from contextlib import nullcontext
 from typing import Any, Dict, List
 from google import genai
 from google.genai import types
+from opentelemetry import trace
 from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
-from phoenix.otel import register
+from phoenix.otel import SpanAttributes, register, using_session
 
 from operio_agent.config import settings
 from operio_agent.core.mcp_client import McpClientManager
@@ -45,6 +47,7 @@ active_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 active_weather_emergency: contextvars.ContextVar[str | None] = (
     contextvars.ContextVar("active_weather_emergency", default=None)
 )
+tracer = trace.get_tracer("operio_agent.brain")
 
 
 class OperioBrain:
@@ -98,6 +101,28 @@ class OperioBrain:
             self.update_work_order_status,
             self.check_active_work_orders,
         ]
+
+    @staticmethod
+    def _record_timeline_step(
+        decisions_timeline: list[dict[str, Any]], step: dict[str, Any]
+    ) -> None:
+        """Appends a timeline step and mirrors it into the active trace span."""
+
+        decisions_timeline.append(step)
+
+        active_span = trace.get_current_span()
+        if not active_span or not active_span.is_recording():
+            return
+
+        details = str(step.get("details", ""))
+        active_span.add_event(
+            "operio.timeline.step",
+            {
+                "operio.timeline.type": str(step.get("type", "")),
+                "operio.timeline.title": str(step.get("title", "")),
+                "operio.timeline.preview": details[:500],
+            },
+        )
 
     async def search_leases(self, query: str) -> str:
         """Search the lease agreement of the current tenant to locate liability, cost limits, and maintenance clauses.
@@ -272,6 +297,7 @@ class OperioBrain:
         max_agent_turns = 8
         turn_count = 0
         decisions_timeline: list[dict[str, Any]] = []
+        final_text = ""
 
         system_instruction = SYSTEM_INSTRUCTION_TEMPLATE.format(
             weather_context=weather_context
@@ -295,114 +321,149 @@ class OperioBrain:
                     )
                 )
 
+        latest_user_message = ""
+        for msg in reversed(chat_history):
+            if msg.get("role") == "user":
+                latest_user_message = str(msg.get("content", ""))
+                break
+
         tool_mapping = {tool.__name__: tool for tool in self.tools}
 
-        while turn_count < max_agent_turns:
-            turn_count += 1
-            print(
-                f"[Brain] Executing agent reasoning turn {turn_count}/{max_agent_turns}..."
-            )
+        session_id = active_session_id.get()
+        session_context = using_session(session_id) if session_id else nullcontext()
 
-            # Run LLM generation
-            config = types.GenerateContentConfig(
-                tools=self.tools,
-                system_instruction=system_instruction,
-                temperature=0.2,  # Low temperature for accurate tool calls
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                    disable=True
-                ),
-            )
-
-            response = self.client.models.generate_content(
-                model=self.model_name, contents=sdk_messages, config=config
-            )
-
-            # Safeguard against empty candidates
-            if not response.candidates or not response.candidates[0].content:
-                break
-
-            content = response.candidates[0].content
-
-            # Append model's output to the SDK messages list
-            sdk_messages.append(content)
-
-            # Check if Gemini wants to call any functions
-            function_calls = response.function_calls
-            if not function_calls:
-                # No function calls, the model gave its final answer
-                final_text = response.text or ""
-                decisions_timeline.append(
-                    {
-                        "type": "response",
-                        "title": "Final Response Formulation",
-                        "details": final_text,
-                    }
-                )
-                break
-
-            # Process function calls
-            tool_parts = []
-            for call in function_calls:
-                tool_name = call.name
-                args = call.args or {}
-                print(
-                    f"[Brain] Model requested tool call: {tool_name} with args: {args}"
-                )
-
-                # Update timeline
-                decisions_timeline.append(
-                    {
-                        "type": "tool_call",
-                        "title": f"Executing Tool: {tool_name}",
-                        "details": f"Parameters: {json.dumps(args)}",
-                    }
-                )
-
-                # Execute tool
-                tool_fn = tool_mapping.get(tool_name)
-                if not tool_fn:
-                    tool_output = json.dumps(
-                        {"error": f"Tool '{tool_name}' not found."}
+        with session_context:
+            with tracer.start_as_current_span(
+                "operio.reasoning_loop",
+                attributes={
+                    SpanAttributes.OPENINFERENCE_SPAN_KIND: "AGENT",
+                    SpanAttributes.INPUT_VALUE: latest_user_message,
+                    "operio.tenant.id": active_tenant_id.get() or "",
+                    "operio.lease.id": active_lease_id.get() or "",
+                    "operio.weather.context": weather_context,
+                },
+            ) as agent_span:
+                while turn_count < max_agent_turns:
+                    turn_count += 1
+                    print(
+                        f"[Brain] Executing agent reasoning turn {turn_count}/{max_agent_turns}..."
                     )
+
+                    # Run LLM generation
+                    config = types.GenerateContentConfig(
+                        tools=self.tools,
+                        system_instruction=system_instruction,
+                        temperature=0.2,  # Low temperature for accurate tool calls
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                            disable=True
+                        ),
+                    )
+
+                    response = self.client.models.generate_content(
+                        model=self.model_name, contents=sdk_messages, config=config
+                    )
+
+                    # Safeguard against empty candidates
+                    if not response.candidates or not response.candidates[0].content:
+                        break
+
+                    content = response.candidates[0].content
+
+                    # Append model's output to the SDK messages list
+                    sdk_messages.append(content)
+
+                    # Check if Gemini wants to call any functions
+                    function_calls = response.function_calls
+                    if not function_calls:
+                        # No function calls, the model gave its final answer
+                        final_text = response.text or ""
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "response",
+                                "title": "Final Response Formulation",
+                                "details": final_text,
+                            },
+                        )
+                        break
+
+                    # Process function calls
+                    tool_parts = []
+                    for call in function_calls:
+                        tool_name = call.name
+                        args = call.args or {}
+                        print(
+                            f"[Brain] Model requested tool call: {tool_name} with args: {args}"
+                        )
+
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "tool_call",
+                                "title": f"Executing Tool: {tool_name}",
+                                "details": f"Parameters: {json.dumps(args)}",
+                            },
+                        )
+
+                        tool_fn = tool_mapping.get(tool_name)
+                        with tracer.start_as_current_span(
+                            f"tool.{tool_name}",
+                            attributes={
+                                SpanAttributes.OPENINFERENCE_SPAN_KIND: "TOOL",
+                                "tool.name": tool_name,
+                                SpanAttributes.INPUT_VALUE: json.dumps(args),
+                            },
+                        ) as tool_span:
+                            if not tool_fn:
+                                tool_output = json.dumps(
+                                    {"error": f"Tool '{tool_name}' not found."}
+                                )
+                            else:
+                                try:
+                                    tool_output = await tool_fn(**args)
+                                except Exception as e:
+                                    tool_output = json.dumps({"error": str(e)})
+
+                            tool_span.set_attribute(
+                                SpanAttributes.OUTPUT_VALUE, str(tool_output)[:1000]
+                            )
+
+                        print(f"[Brain] Tool execution output: {tool_output}")
+
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "tool_result",
+                                "title": f"Tool Result: {tool_name}",
+                                "details": tool_output,
+                            },
+                        )
+
+                        tool_parts.append(
+                            types.Part.from_function_response(
+                                name=tool_name, response={"result": tool_output}
+                            )
+                        )
+
+                    sdk_messages.append(types.Content(role="tool", parts=tool_parts))
+
                 else:
-                    try:
-                        # Call async tool wrapper
-                        tool_output = await tool_fn(**args)
-                    except Exception as e:
-                        tool_output = json.dumps({"error": str(e)})
-
-                print(f"[Brain] Tool execution output: {tool_output}")
-
-                # Update timeline with tool execution result
-                decisions_timeline.append(
-                    {
-                        "type": "tool_result",
-                        "title": f"Tool Result: {tool_name}",
-                        "details": tool_output,
-                    }
-                )
-
-                # Add to tool parts response
-                tool_parts.append(
-                    types.Part.from_function_response(
-                        name=tool_name, response={"result": tool_output}
+                    final_text = (
+                        "Operational Guardrail Triggered: The maximum reasoning loop steps "
+                        "were reached. Please contact property support."
                     )
+                    self._record_timeline_step(
+                        decisions_timeline,
+                        {
+                            "type": "warning",
+                            "title": "Runaway Loop Aborted",
+                            "details": "Agent reached max_agent_turns budget. Forcing termination.",
+                        },
+                    )
+
+                agent_span.set_attribute(SpanAttributes.OUTPUT_VALUE, final_text[:1000])
+                agent_span.set_attribute(
+                    "operio.timeline.step_count", len(decisions_timeline)
                 )
-
-            # Add function outputs back to history as role 'tool'
-            sdk_messages.append(types.Content(role="tool", parts=tool_parts))
-
-        else:
-            final_text = (
-                "Operational Guardrail Triggered: The maximum reasoning loop steps "
-                "were reached. Please contact property support."
-            )
-            decisions_timeline.append(
-                {
-                    "type": "warning",
-                    "title": "Runaway Loop Aborted",
-                    "details": "Agent reached max_agent_turns budget. Forcing termination.",
-                }
-            )
 
         return {"response_text": final_text, "timeline": decisions_timeline}

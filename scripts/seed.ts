@@ -141,6 +141,28 @@ async function seed() {
           { role: 'user', content: 'Ok, please send them now, we will handle the cost.' },
           { role: 'model', content: 'I have dispatched John Connor to your location to resolve the plumbing clog.' }
         ]
+      },
+      {
+        _id: 'session_lighting_nike',
+        tenantId: 'tenant_001',
+        messages: [
+          { role: 'user', content: 'Our custom display lighting is flickering across two storefront zones and bulbs we replaced yesterday are already burning out again.' },
+          { role: 'model', content: 'I am checking the Unit 104 lease because the fixtures may be tenant-owned while the upstream electrical panel may still belong to the landlord.' },
+          { role: 'model', content: 'Section 9.2 says Nike maintains store fixtures, lamps, and drivers, but the landlord owns the upstream feeder and panel. Because multiple circuits are flickering and replacement lamps failed again, this may indicate a supply-side issue rather than isolated bulb failure.' },
+          { role: 'user', content: 'Can you route the right inspection and note that we think it is more than just bulbs?' },
+          { role: 'model', content: 'Yes. I am flagging this as an ambiguous electrical demarcation case so operations can inspect the feeder and panel before assigning final liability.' }
+        ]
+      },
+      {
+        _id: 'session_event_nike',
+        tenantId: 'tenant_001',
+        messages: [
+          { role: 'user', content: 'We are planning a sneaker launch next Friday and expect a corridor line outside the store. What approvals do we need?' },
+          { role: 'model', content: 'I am checking your lease for launch-event and queue-management rules before I advise next steps.' },
+          { role: 'model', content: 'Section 13.1 requires landlord review at least 10 business days in advance for any event that may create a corridor queue or obstruct common-area circulation.' },
+          { role: 'user', content: 'Can we place branded stanchions ourselves if the line gets large?' },
+          { role: 'model', content: 'Not without written approval. The lease says Nike may not independently occupy corridor space or form exterior lines in common areas without landlord approval and an event operations plan.' }
+        ]
       }
     ];
     await db.collection('sessions').insertMany(sessionData as any[]);
@@ -202,6 +224,36 @@ async function seed() {
           {
             status: 'Dispatched',
             timestamp: new Date().toISOString()
+          }
+        ]
+      },
+      {
+        tenantId: 'tenant_001',
+        assetId: 'Unit 104 Lighting / Panel Feed',
+        description: 'Custom display lighting flickers across multiple storefront runs; repeated bulb burnout suggests upstream panel or feeder instability.',
+        costEstimation: 275,
+        leaseResponsibility: 'Unknown',
+        leaseClauseRef: 'Section 9.2',
+        emergencyLevel: 'Routine',
+        status: 'Pending Approval',
+        assignedTo: null,
+        sessionId: 'session_lighting_nike',
+        externalSystemPayload: {
+          source: 'Operio-Agent',
+          externalId: 'WO-771245',
+          action: 'CREATE_AND_HOLD_FOR_DIAGNOSIS',
+          costCenter: 'Liability-Pending-Demarcation'
+        },
+        timeline: [
+          {
+            status: 'Created',
+            timestamp: new Date(Date.now() - 1800000).toISOString(),
+            notes: 'Ambiguous liability between store-owned fixtures and landlord-owned upstream panel.'
+          },
+          {
+            status: 'Pending Approval',
+            timestamp: new Date(Date.now() - 900000).toISOString(),
+            notes: 'Awaiting operations review before dispatching electrical inspection.'
           }
         ]
       }
