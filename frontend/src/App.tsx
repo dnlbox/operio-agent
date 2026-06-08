@@ -4,7 +4,6 @@ import { fetchStaff } from '@/api/client';
 import { CitationDrawer, MOCK_CITATIONS } from '@/components/CitationDrawer';
 import { Dashboard } from '@/components/Dashboard';
 import { HitlOverlay } from '@/components/HitlOverlay';
-import { IntakeStudio } from '@/components/IntakeStudio';
 import { KnowledgeBase } from '@/components/KnowledgeBase';
 import { Sidebar } from '@/components/Sidebar';
 import { StaffPortal } from '@/components/StaffPortal';
@@ -58,7 +57,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
 );
 
 /**
- * Shared tenant selector used by intake-focused routes.
+ * Shared tenant selector used by tenant-scoped routes.
  *
  * @returns The rendered tenant selector.
  */
@@ -108,7 +107,7 @@ const AppContent: React.FC = () => {
   });
 
   useEffect(() => {
-    const allowedViews: AppView[] = ['dashboard', 'tenanthub', 'intake', 'knowledge', 'staff'];
+    const allowedViews: AppView[] = ['dashboard', 'tenanthub', 'knowledge', 'staff'];
 
     const syncRoute = () => {
       const hash = window.location.hash.substring(1);
@@ -155,25 +154,12 @@ const AppContent: React.FC = () => {
           <div className="view-panel active-view" id="view-tenanthub">
             <ViewHeader
               icon="forum"
-              kicker="Probabilistic Intake"
+              kicker="Tenant Reasoning"
               title="Conversational Tenant Flow"
-              description="Use the agent when the tenant needs guidance, diagnosis, or flexible back-and-forth before a work order is shaped."
+              description="Use the agent when the tenant needs guidance, diagnosis, policy interpretation, or flexible back-and-forth before an action is taken."
               actions={<TenantSelector />}
             />
             <TenantHub onCitationRequest={setCitationRef} />
-          </div>
-        )}
-
-        {activeView === 'intake' && (
-          <div className="view-panel active-view" id="view-intake">
-            <ViewHeader
-              icon="assignment"
-              kicker="Deterministic Intake"
-              title="Structured Work Order Intake"
-              description="Capture known facts explicitly, then generate a cleaner landlord approval brief with less conversational ambiguity."
-              actions={<TenantSelector />}
-            />
-            <IntakeStudio />
           </div>
         )}
 

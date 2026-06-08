@@ -6,7 +6,6 @@ import { showSystemNotice } from '@/utils/dom';
 const navItems: Array<{ icon: string; label: string; view: AppView }> = [
   { icon: 'space_dashboard', label: 'Command Center', view: 'dashboard' },
   { icon: 'forum', label: 'Tenant Chat', view: 'tenanthub' },
-  { icon: 'assignment', label: 'Intake Studio', view: 'intake' },
   { icon: 'search_insights', label: 'Evidence Explorer', view: 'knowledge' },
   { icon: 'badge', label: 'Field Team', view: 'staff' },
 ];

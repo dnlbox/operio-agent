@@ -141,7 +141,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
           </div>
 
           <p className="dashboard-brief-note">
-            The strongest live proof path is still: tenant intake, lease/manual retrieval, MCP trace, then approval gating only when landlord liability and cost justify human review.
+            The strongest live proof path is still: tenant conversation, lease/manual retrieval, MCP trace, then approval gating only when landlord liability and cost justify human review.
           </p>
         </article>
 

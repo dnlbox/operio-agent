@@ -1,6 +1,6 @@
 # Arize Phoenix Evaluation Plan
 
-This document explains how Operio should use **Arize Phoenix** to prove that the tenant chatbot is doing real reasoning rather than acting like a structured intake form.
+This document explains how Operio should use **Arize Phoenix** to prove that the tenant chatbot is doing real reasoning rather than acting like a basic data-entry workflow.
 
 ## 1. What Phoenix Should Prove
 

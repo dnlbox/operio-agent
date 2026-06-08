@@ -4,7 +4,6 @@
 export type AppView =
   | 'dashboard'
   | 'tenanthub'
-  | 'intake'
   | 'knowledge'
   | 'staff';
 

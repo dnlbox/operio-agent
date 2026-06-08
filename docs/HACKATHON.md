@@ -69,6 +69,6 @@ Our project should speak directly to the backgrounds of the judges, who include:
 ## ⏱️ Final 72-Hour Sprint
 1.  Polish the live demo path around three incidents: HVAC dispatch, roof leak approval gate, and manual-assisted escalator diagnosis.
 2.  Ship a stable hosted deployment and verify Phoenix, Elastic retrieval, and MongoDB-backed ticket transitions on that environment.
-3.  Record a tight 3-minute demo that shows intake, trace, approval, and final dispatch without dead time.
+3.  Record a tight 3-minute demo that shows tenant chat, trace, approval, and final dispatch without dead time.
 4.  Make the GitHub repo self-explanatory: current architecture, working setup commands, open-source license, screenshots, and track choice.
 5.  Submit with a crisp one-sentence positioning line: "Operio is an autonomous mall operations agent that turns leases, manuals, and staff state into traceable dispatch decisions."
