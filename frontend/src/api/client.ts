@@ -1,4 +1,12 @@
-import { Ticket, Staff, RAGHit, TimelineStep, ChatMessage } from '@/types';
+import { Ticket, Staff, RAGHit, ChatMessage } from '@/types';
+import { z } from 'zod';
+import {
+  ticketSchema,
+  staffSchema,
+  ragHitSchema,
+  chatResponseSchema,
+  sessionSchema,
+} from '@/types/schemas';
 
 const API_BASE = ''; // Relative to server root
 
@@ -8,7 +16,11 @@ const API_BASE = ''; // Relative to server root
 interface ChatResponse {
   sessionId: string;
   response: string;
-  timeline: TimelineStep[];
+  timeline: Array<{
+    type: 'thought' | 'tool_call' | 'tool_result' | 'response' | 'warning';
+    title: string;
+    details: string;
+  }>;
 }
 
 /**
@@ -21,7 +33,8 @@ export async function fetchTickets(): Promise<Ticket[]> {
   if (!res.ok) {
     throw new Error(`Failed to fetch tickets: ${res.statusText}`);
   }
-  return res.json() as Promise<Ticket[]>;
+  const data = await res.json();
+  return z.array(ticketSchema).parse(data) as Ticket[];
 }
 
 /**
@@ -34,7 +47,8 @@ export async function fetchStaff(): Promise<Staff[]> {
   if (!res.ok) {
     throw new Error(`Failed to fetch staff: ${res.statusText}`);
   }
-  return res.json() as Promise<Staff[]>;
+  const data = await res.json();
+  return z.array(staffSchema).parse(data) as Staff[];
 }
 
 /**
@@ -69,7 +83,8 @@ export async function sendChatMessage(
   if (!res.ok) {
     throw new Error(`Chat API error: ${res.statusText}`);
   }
-  return res.json() as Promise<ChatResponse>;
+  const data = await res.json();
+  return chatResponseSchema.parse(data) as ChatResponse;
 }
 
 /**
@@ -102,7 +117,8 @@ export async function searchKnowledgeBase(
   if (!res.ok) {
     throw new Error(`RAG search error: ${res.statusText}`);
   }
-  return res.json() as Promise<RAGHit[]>;
+  const data = await res.json();
+  return z.array(ragHitSchema).parse(data) as RAGHit[];
 }
 
 /**
@@ -129,7 +145,12 @@ export async function approveTicket(
   if (!res.ok) {
     throw new Error(`Approve API error: ${res.statusText}`);
   }
-  return res.json() as Promise<{ success: boolean; ticket: Ticket }>;
+  const data = await res.json();
+  const schema = z.object({
+    success: z.boolean(),
+    ticket: ticketSchema,
+  });
+  return schema.parse(data) as { success: boolean; ticket: Ticket };
 }
 
 /**
@@ -146,7 +167,12 @@ export async function rejectTicket(ticketId: string): Promise<{ success: boolean
   if (!res.ok) {
     throw new Error(`Reject API error: ${res.statusText}`);
   }
-  return res.json() as Promise<{ success: boolean; ticket: Ticket }>;
+  const data = await res.json();
+  const schema = z.object({
+    success: z.boolean(),
+    ticket: ticketSchema,
+  });
+  return schema.parse(data) as { success: boolean; ticket: Ticket };
 }
 
 /**
@@ -166,7 +192,8 @@ export async function updateStaff(staffId: string, updates: Partial<Staff>): Pro
   if (!res.ok) {
     throw new Error(`Failed to update staff member: ${res.statusText}`);
   }
-  return res.json() as Promise<Staff>;
+  const data = await res.json();
+  return staffSchema.parse(data) as Staff;
 }
 
 /**
@@ -180,5 +207,6 @@ export async function fetchSession(sessionId: string): Promise<{ _id: string; te
   if (!res.ok) {
     throw new Error(`Failed to fetch session context: ${res.statusText}`);
   }
-  return res.json() as Promise<{ _id: string; tenantId: string; messages: ChatMessage[] }>;
+  const data = await res.json();
+  return sessionSchema.parse(data) as { _id: string; tenantId: string; messages: ChatMessage[] };
 }

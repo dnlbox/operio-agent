@@ -1,4 +1,4 @@
-import { qs, qsa, on } from '@/utils/dom';
+import React, { useEffect, useRef } from 'react';
 import { parseMarkdown } from '@/utils/markdown';
 
 /** Mock dataset of lease sections and manufacturer equipment manuals. */
@@ -32,84 +32,100 @@ Error Code E-04 indicates a **Comb Plate Safety Switch Tripped** event (comb tee
 };
 
 /**
- * Initializes and manages the citation drawer dialog component.
+ * Props definition for the CitationDrawer component.
  */
-export class CitationDrawer {
-  private dialog: HTMLDialogElement;
-  private titleEl: HTMLElement;
-  private contentEl: HTMLElement;
-  private closeBtn: HTMLElement;
-
-  /**
-   * Constructs the CitationDrawer.
-   */
-  constructor() {
-    this.dialog = qs<HTMLDialogElement>('#citation-drawer');
-    this.titleEl = qs('#drawer-title', this.dialog);
-    this.contentEl = qs('#drawer-content', this.dialog);
-    this.closeBtn = qs('#btn-close-drawer', this.dialog);
-
-    this.bindEvents();
-  }
-
-  /**
-   * Binds event listeners for the drawer dialog.
-   */
-  private bindEvents(): void {
-    on(this.closeBtn, 'click', () => this.close());
-
-    // Light dismissal: close when clicking on the backdrop
-    on(this.dialog, 'click', (event: MouseEvent) => {
-      if (event.target === this.dialog) {
-        const rect = this.dialog.getBoundingClientRect();
-        const isClickedOutside = (
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom ||
-          event.clientX < rect.left ||
-          event.clientX > rect.right
-        );
-        if (isClickedOutside) {
-          this.close();
-        }
-      }
-    });
-  }
-
-  /**
-   * Opens the drawer to view a specific document citation reference.
-   * 
-   * @param ref The citation code or description string.
-   */
-  public open(ref: string): void {
-    const markdown = MOCK_CITATIONS[ref] || `### Document Reference: ${ref}\nClause details are fetched from Elastic RAG database index.`;
-    const html = parseMarkdown(markdown);
-
-    this.titleEl.textContent = `Document Audit: ${ref}`;
-    this.contentEl.innerHTML = html;
-
-    // Attach click listeners to any nested citations that get generated inside the drawer
-    qsa<HTMLElement>('.citation-btn', this.contentEl).forEach(btn => {
-      on(btn, 'click', () => {
-        const nestedRef = btn.getAttribute('data-ref');
-        if (nestedRef) this.open(nestedRef);
-      });
-    });
-
-    if (typeof this.dialog.showModal === 'function') {
-      this.dialog.showModal();
-    } else {
-      this.dialog.classList.remove('hidden');
-    }
-  }
-
-  /**
-   * Closes the citation drawer.
-   */
-  public close(): void {
-    if (typeof this.dialog.close === 'function') {
-      this.dialog.close();
-    } else {
-      this.dialog.classList.add('hidden');
-    }
-  }
+export interface CitationDrawerProps {
+  /** The citation reference ID to view, or null if closed. */
+  reference: string | null;
+  /** Callback triggered when a nested citation link is clicked. */
+  onReferenceChange: (ref: string) => void;
+  /** Callback triggered to close the drawer. */
+  onClose: () => void;
 }
+
+/**
+ * Initializes and manages the citation drawer dialog component.
+ * 
+ * @param props Component parameters.
+ * @returns The rendered CitationDrawer React element.
+ */
+export const CitationDrawer: React.FC<CitationDrawerProps> = ({
+  reference,
+  onReferenceChange,
+  onClose,
+}) => {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const isOpen = reference !== null;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close();
+      }
+    }
+  }, [isOpen]);
+
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
+    const dialog = dialogRef.current;
+    if (event.target === dialog) {
+      const rect = dialog.getBoundingClientRect();
+      const isClickedOutside = (
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom ||
+        event.clientX < rect.left ||
+        event.clientX > rect.right
+      );
+      if (isClickedOutside) {
+        onClose();
+      }
+    }
+  };
+
+  const handleContentClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains('citation-btn')) {
+      const nestedRef = target.getAttribute('data-ref');
+      if (nestedRef) {
+        onReferenceChange(nestedRef);
+      }
+    }
+  };
+
+  const markdown = reference
+    ? MOCK_CITATIONS[reference] || `### Document Reference: ${reference}\nClause details are fetched from Elastic RAG database index.`
+    : '';
+
+  const html = parseMarkdown(markdown);
+
+  return (
+    <dialog 
+      className="citation-drawer" 
+      id="citation-drawer" 
+      ref={dialogRef}
+      onClick={handleBackdropClick}
+      aria-labelledby="drawer-title"
+    >
+      <div className="drawer-header">
+        <h3 className="headline-sm" id="drawer-title">
+          {reference ? `Document Audit: ${reference}` : 'Document Viewer'}
+        </h3>
+        <button className="drawer-close" id="btn-close-drawer" onClick={onClose}>
+          &times;
+        </button>
+      </div>
+      <div 
+        className="drawer-body" 
+        id="drawer-content"
+        dangerouslySetInnerHTML={{ __html: html }}
+        onClick={handleContentClick}
+      />
+    </dialog>
+  );
+};
