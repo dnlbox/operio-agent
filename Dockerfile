@@ -53,9 +53,9 @@ COPY agents/ ./agents/
 COPY scripts/ ./scripts/
 COPY docs/ ./docs/
 
-# Expose FastAPI port
+# Expose FastAPI port (Cloud Run overrides $PORT at runtime; defaults to 3001)
 EXPOSE 3001
 
 # Run FastAPI backend
 ENV PYTHONPATH=/app/agents
-CMD ["uvicorn", "operio_agent.main:app", "--host", "0.0.0.0", "--port", "3001"]
+CMD uvicorn operio_agent.main:app --host 0.0.0.0 --port ${PORT:-3001}

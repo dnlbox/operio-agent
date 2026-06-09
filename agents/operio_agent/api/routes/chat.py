@@ -8,7 +8,7 @@ from opentelemetry import trace
 from pymongo.database import Database
 from phoenix.otel import SpanAttributes, using_session
 
-from operio_agent.api.deps import get_brain, get_db
+from operio_agent.api.deps import get_brain, get_db, chat_rate_limiter
 from operio_agent.api.schemas.chat import ChatRequest
 from operio_agent.core.session_analysis import build_turn_record
 from operio_agent.core.brain import (
@@ -49,6 +49,7 @@ async def chat_endpoint(
     req: ChatRequest,
     db: Database = Depends(get_db),
     brain: OperioBrain = Depends(get_brain),
+    _: None = Depends(chat_rate_limiter),
 ) -> dict[str, Any]:
     """Handles chat messages, runs reasoning loop, and updates session history.
 

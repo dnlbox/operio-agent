@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.venv
+**/.venv
+.git
+.github
+.pytest_cache
+**/.pytest_cache
+.mypy_cache
+**/.mypy_cache
+__pycache__
+**/__pycache__
+frontend/dist
+demo
+*.tar.gz
+.env*

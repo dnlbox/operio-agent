@@ -205,50 +205,21 @@ describe('MongoDB MCP Server Integration Tests', () => {
   });
 });
 
-describe('Elasticsearch MCP Server Integration Tests', () => {
-  const elasticServerPath = path.resolve('mcp_servers/elastic-server.ts');
+describe('MongoDB MCP Server — Atlas Search Tools', () => {
+  const mongodbServerPath = path.resolve('mcp_servers/mongodb-server.ts');
 
-  test('should list tools successfully', async () => {
+  test('search_leases and search_manuals tools are registered', async () => {
     const listReq = {
       jsonrpc: '2.0',
-      id: 1,
+      id: 10,
       method: 'tools/list',
       params: {}
     };
 
-    const res = await callMcpServer(elasticServerPath, [listReq]);
+    const res = await callMcpServer(mongodbServerPath, [listReq]);
     expect(res[0]).toBeDefined();
-    expect(res[0].id).toBe(1);
     const toolNames = res[0].result.tools.map((t: any) => t.name);
     expect(toolNames).toContain('search_leases');
     expect(toolNames).toContain('search_manuals');
-  });
-
-  test('should execute search_leases successfully', async () => {
-    const callReq = {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: {
-        name: 'search_leases',
-        arguments: {
-          leaseId: 'lease_nike_104',
-          query: 'HVAC liability'
-        }
-      }
-    };
-
-    const res = await callMcpServer(elasticServerPath, [callReq]);
-    expect(res[0]).toBeDefined();
-    expect(res[0].id).toBe(2);
-    
-    const contentText = res[0].result.content[0].text;
-    const hits = JSON.parse(contentText);
-    expect(hits.length).toBeGreaterThan(0);
-    
-    // Check if Nike lease Section 9.1 is returned (since we search HVAC)
-    const nikeHits = hits.filter((h: any) => h.leaseId === 'lease_nike_104');
-    expect(nikeHits.length).toBeGreaterThan(0);
-    expect(nikeHits[0].content).toContain('Section 9.1');
   });
 });

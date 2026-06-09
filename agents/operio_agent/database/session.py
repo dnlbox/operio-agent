@@ -1,6 +1,5 @@
 """Database connection management and initialization helpers."""
 
-from elasticsearch import Elasticsearch
 from pymongo import MongoClient
 from pymongo.database import Database
 from operio_agent.config import settings
@@ -25,12 +24,3 @@ def get_mongo_db(client: MongoClient) -> Database:
         Database: The database object.
     """
     return client[settings.mongo_db]
-
-
-def create_elasticsearch_client() -> Elasticsearch:
-    """Creates a configured Elasticsearch client.
-
-    Returns:
-        Elasticsearch: The configured Elasticsearch client.
-    """
-    return Elasticsearch(settings.elastic_uri)

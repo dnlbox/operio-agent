@@ -11,10 +11,14 @@ from operio_agent.config import settings
 from operio_agent.core.brain import OperioBrain
 from operio_agent.core.mcp_client import McpClientManager
 from operio_agent.database.session import (
-    create_elasticsearch_client,
     create_mongo_client,
     get_mongo_db,
 )
+
+ALLOWED_ORIGINS = [
+    "https://operio.chat",
+    "http://localhost:3001",
+]
 
 
 @asynccontextmanager
@@ -25,20 +29,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     mongo_client = create_mongo_client()
     db = get_mongo_db(mongo_client)
 
-    print(
-        f"[Lifespan] Connecting to Elasticsearch at {settings.elastic_uri}..."
-    )
-    elastic_client = create_elasticsearch_client()
-
     # Store on app.state
     app.state.mongo_client = mongo_client
     app.state.db = db
-    app.state.elastic_client = elastic_client
 
     # 2. Start MCP subprocesses
     mcp_manager = McpClientManager(
         mongo_cmd=settings.mongo_mcp_command,
-        elastic_cmd=settings.elastic_mcp_command,
     )
     try:
         await mcp_manager.start()
@@ -68,14 +65,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enable CORS for local cross-port testing if required
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Register Sub-routers
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
@@ -86,20 +83,18 @@ app.include_router(docs.router, prefix="/api", tags=["Documents"])
 
 @app.get("/api/health")
 def health_check() -> dict[str, Any]:
-    """Validates connectivity to backing database systems.
+    """Validates connectivity to the backing database.
 
     Returns:
         dict[str, Any]: Health status mapping.
     """
     db = app.state.db
-    elastic_client = app.state.elastic_client
 
     return {
         "status": "ok",
         "service": "operio-agent-orchestrator",
         "databases": {
             "mongodb": db.command("ping")["ok"] == 1.0,
-            "elasticsearch": bool(elastic_client.ping()),
         },
     }
 

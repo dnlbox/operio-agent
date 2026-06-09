@@ -1,0 +1,56 @@
+# ==============================================================================
+# Cloud Run Deployment Workflow
+# ==============================================================================
+# Required GitHub repository secrets:
+#   GCP_WIF_PROVIDER  — Workload Identity Federation provider resource string
+#                       e.g. projects/178805676563/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+#   GCP_SA_EMAIL      — Service account email that the WIF identity impersonates
+#                       e.g. operio-vm-sa@operio-agent-260608-3d6b.iam.gserviceaccount.com
+# ==============================================================================
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: operio-agent
+          region: us-central1
+          source: .
+          flags: >-
+            --port=3001
+            --memory=1Gi
+            --cpu=1
+            --min-instances=0
+            --max-instances=3
+            --allow-unauthenticated
+            --service-account=operio-vm-sa@operio-agent-260608-3d6b.iam.gserviceaccount.com
+            --set-secrets=MONGO_URI=operio-mongo-uri:latest,ARIZE_API_KEY=operio-arize-key:latest
+            --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=operio-agent-260608-3d6b,GOOGLE_CLOUD_LOCATION=us-central1,MONGO_DB=operio,OPERIO_REASONING_BACKEND=adk,ARIZE_SPACE_ID=U3BhY2U6NDU5NDk6TXpmMw==
+
+      - name: Print service URL
+        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"

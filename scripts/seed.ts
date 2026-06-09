@@ -1,4 +1,3 @@
-import { Client as ElasticClient } from '@elastic/elasticsearch';
 import { MongoClient } from 'mongodb';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -9,7 +8,38 @@ dotenv.config();
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
 const MONGO_DB = 'operio';
 
-const ELASTIC_URI = process.env.ELASTIC_URI || 'http://localhost:9200';
+// ---------------------------------------------------------------------------
+// Atlas Search index definitions — created programmatically if the driver
+// supports it on Atlas M0; otherwise printed for manual creation in the UI.
+// ---------------------------------------------------------------------------
+
+const LEASES_SEARCH_INDEX = {
+  name: 'leases_search',
+  definition: {
+    mappings: {
+      dynamic: false,
+      fields: {
+        title: { type: 'string', analyzer: 'lucene.standard' },
+        content: { type: 'string', analyzer: 'lucene.standard' },
+        leaseId: { type: 'token' }
+      }
+    }
+  }
+};
+
+const MANUALS_SEARCH_INDEX = {
+  name: 'manuals_search',
+  definition: {
+    mappings: {
+      dynamic: false,
+      fields: {
+        title: { type: 'string', analyzer: 'lucene.standard' },
+        content: { type: 'string', analyzer: 'lucene.standard' },
+        equipmentModel: { type: 'token' }
+      }
+    }
+  }
+};
 
 const tenantsData = [
   {
@@ -90,18 +120,44 @@ const staffData = [
 function parseMarkdownSections(filePath: string): string[] {
   const absolutePath = path.resolve(filePath);
   const content = fs.readFileSync(absolutePath, 'utf-8');
-  
+
   // Split by markdown headers
   const sections = content.split(/(?=^##\s+)/m);
   return sections.map(s => s.trim()).filter(s => s.length > 0);
 }
 
+/**
+ * Attempts to create an Atlas Search index via the driver API.
+ * On Atlas M0 the createSearchIndex command may not be available;
+ * if it fails we print the definition and instructions instead.
+ */
+async function ensureSearchIndex(
+  db: ReturnType<MongoClient['db']>,
+  collectionName: string,
+  indexDef: { name: string; definition: object }
+): Promise<void> {
+  try {
+    const collection = db.collection(collectionName);
+    await collection.createSearchIndex({ name: indexDef.name, definition: indexDef.definition });
+    console.log(`  Atlas Search index "${indexDef.name}" created on "${collectionName}".`);
+  } catch (err: any) {
+    const msg: string = err?.message ?? String(err);
+    console.warn(`  Could not auto-create Atlas Search index "${indexDef.name}" on "${collectionName}": ${msg}`);
+    console.warn('  Create it manually in the MongoDB Atlas UI:');
+    console.warn(`  Collection: ${MONGO_DB}.${collectionName}`);
+    console.warn(`  Index name: ${indexDef.name}`);
+    console.warn('  Index definition JSON:');
+    console.warn(JSON.stringify(indexDef.definition, null, 2));
+    console.warn('  Steps: Atlas UI -> Your Cluster -> Search -> Create Search Index -> JSON Editor -> paste above.');
+  }
+}
+
 async function seed() {
   console.log('--- Starting Database Seeding ---');
 
-  // 1. Seed MongoDB
   console.log(`Connecting to MongoDB at ${MONGO_URI}...`);
   const mongoClient = new MongoClient(MONGO_URI);
+
   try {
     await mongoClient.connect();
     const db = mongoClient.db(MONGO_DB);
@@ -260,239 +316,72 @@ async function seed() {
     ];
     await db.collection('work_orders').insertMany(workOrdersData as any[]);
 
+    // -----------------------------------------------------------------------
+    // Seed leases and manuals into MongoDB collections (replaces ES indexing)
+    // -----------------------------------------------------------------------
+
+    const leaseFiles: Array<{ leaseId: string; titlePrefix: string; pdfUrl: string; file: string }> = [
+      { leaseId: 'lease_nike_104',   titlePrefix: 'Nike Store Lease Section',    pdfUrl: '/assets/leases/lease_nike_104.pdf',   file: 'docs/mock_data/leases/nike-lease.md' },
+      { leaseId: 'lease_adidas_105', titlePrefix: 'Adidas Store Lease Section',  pdfUrl: '/assets/leases/lease_adidas_105.pdf', file: 'docs/mock_data/leases/adidas-lease.md' },
+      { leaseId: 'lease_zara_106',   titlePrefix: 'Zara Store Lease Section',    pdfUrl: '/assets/leases/lease_zara_106.pdf',   file: 'docs/mock_data/leases/zara-lease.md' },
+      { leaseId: 'lease_puma_107',   titlePrefix: 'Puma Store Lease Section',    pdfUrl: '/assets/leases/lease_puma_107.pdf',   file: 'docs/mock_data/leases/puma-lease.md' },
+      { leaseId: 'lease_apple_108',  titlePrefix: 'Apple Store Lease Section',   pdfUrl: '/assets/leases/lease_apple_108.pdf',  file: 'docs/mock_data/leases/apple-lease.md' },
+    ];
+
+    const manualFiles: Array<{ equipmentModel: string; titlePrefix: string; pdfUrl: string; file: string }> = [
+      { equipmentModel: 'Carrier Model-50TJ',       titlePrefix: 'Carrier HVAC Manual Part',          pdfUrl: '/assets/manuals/carrier-hvac.pdf',          file: 'docs/mock_data/manuals/carrier-hvac.md' },
+      { equipmentModel: 'Otis Model-NPE',            titlePrefix: 'Otis Escalator Manual Part',        pdfUrl: '/assets/manuals/otis-escalator.pdf',        file: 'docs/mock_data/manuals/otis-escalator.md' },
+      { equipmentModel: 'Schindler Model-9300',      titlePrefix: 'Schindler Elevator Manual Part',    pdfUrl: '/assets/manuals/schindler-elevator.pdf',    file: 'docs/mock_data/manuals/schindler-elevator.md' },
+      { equipmentModel: 'Rheem Model-Classic',       titlePrefix: 'Rheem HVAC Manual Part',            pdfUrl: '/assets/manuals/rheem-hvac.pdf',            file: 'docs/mock_data/manuals/rheem-hvac.md' },
+      { equipmentModel: 'Honeywell Model-T6',        titlePrefix: 'Honeywell Thermostat Manual Part',  pdfUrl: '/assets/manuals/honeywell-thermostat.pdf',  file: 'docs/mock_data/manuals/honeywell-thermostat.md' },
+      { equipmentModel: 'McQuay Model-WSC',          titlePrefix: 'McQuay Chiller Manual Part',        pdfUrl: '/assets/manuals/mcquay-chiller.pdf',        file: 'docs/mock_data/manuals/mcquay-chiller.md' },
+      { equipmentModel: 'Culligan Model-HE',         titlePrefix: 'Culligan Softener Manual Part',     pdfUrl: '/assets/manuals/culligan-softener.pdf',     file: 'docs/mock_data/manuals/culligan-softener.md' },
+      { equipmentModel: 'Lutron Model-Quantum',      titlePrefix: 'Lutron Lighting Manual Part',       pdfUrl: '/assets/manuals/lutron-lighting.pdf',       file: 'docs/mock_data/manuals/lutron-lighting.md' },
+      { equipmentModel: 'Kone Model-TravelMaster',   titlePrefix: 'Kone Escalator Manual Part',        pdfUrl: '/assets/manuals/kone-escalator.pdf',        file: 'docs/mock_data/manuals/kone-escalator.md' },
+      { equipmentModel: 'Generac Model-Protector',   titlePrefix: 'Generac Generator Manual Part',     pdfUrl: '/assets/manuals/generac-generator.pdf',     file: 'docs/mock_data/manuals/generac-generator.md' },
+    ];
+
+    console.log('Seeding "leases" collection...');
+    await db.collection('leases').drop().catch(() => { /* collection may not exist yet */ });
+    const leaseDocs: object[] = [];
+    for (const { leaseId, titlePrefix, pdfUrl, file } of leaseFiles) {
+      const sections = parseMarkdownSections(file);
+      sections.forEach((content, i) => {
+        leaseDocs.push({ leaseId, title: `${titlePrefix} ${i + 1}`, content, pdfUrl });
+      });
+    }
+    if (leaseDocs.length > 0) {
+      await db.collection('leases').insertMany(leaseDocs);
+    }
+    console.log(`  Inserted ${leaseDocs.length} lease sections.`);
+
+    console.log('Seeding "manuals" collection...');
+    await db.collection('manuals').drop().catch(() => { /* collection may not exist yet */ });
+    const manualDocs: object[] = [];
+    for (const { equipmentModel, titlePrefix, pdfUrl, file } of manualFiles) {
+      const sections = parseMarkdownSections(file);
+      sections.forEach((content, i) => {
+        manualDocs.push({ equipmentModel, title: `${titlePrefix} ${i + 1}`, content, pdfUrl });
+      });
+    }
+    if (manualDocs.length > 0) {
+      await db.collection('manuals').insertMany(manualDocs);
+    }
+    console.log(`  Inserted ${manualDocs.length} manual sections.`);
+
+    // -----------------------------------------------------------------------
+    // Create Atlas Search indexes (best-effort; prints UI instructions on fail)
+    // -----------------------------------------------------------------------
+    console.log('Creating Atlas Search indexes...');
+    await ensureSearchIndex(db, 'leases', LEASES_SEARCH_INDEX);
+    await ensureSearchIndex(db, 'manuals', MANUALS_SEARCH_INDEX);
+
     console.log('MongoDB Seeding Completed successfully.');
   } catch (error) {
-    console.error('MongoDB Seeding failed:', error);
+    console.error('Seeding failed:', error);
     process.exit(1);
   } finally {
     await mongoClient.close();
-  }
-
-  // 2. Seed Elasticsearch
-  console.log(`Connecting to Elasticsearch at ${ELASTIC_URI}...`);
-  const elasticClient = new ElasticClient({ node: ELASTIC_URI });
-  try {
-    // Check connection
-    await elasticClient.ping();
-
-    // Recreate indexes
-    const indexes = ['leases', 'manuals'];
-    for (const index of indexes) {
-      const exists = await elasticClient.indices.exists({ index });
-      if (exists) {
-        console.log(`Deleting existing index "${index}"...`);
-        await elasticClient.indices.delete({ index });
-      }
-      console.log(`Creating index "${index}"...`);
-      await elasticClient.indices.create({ index });
-    }
-
-    // Index Lease Files
-    console.log('Indexing Lease agreements...');
-    const nikeLeaseSections = parseMarkdownSections('docs/mock_data/leases/nike-lease.md');
-    for (let i = 0; i < nikeLeaseSections.length; i++) {
-      await elasticClient.index({
-        index: 'leases',
-        document: {
-          leaseId: 'lease_nike_104',
-          title: 'Nike Store Lease Section ' + (i + 1),
-          content: nikeLeaseSections[i],
-          pdfUrl: '/assets/leases/lease_nike_104.pdf'
-        }
-      });
-    }
-
-    const adidasLeaseSections = parseMarkdownSections('docs/mock_data/leases/adidas-lease.md');
-    for (let i = 0; i < adidasLeaseSections.length; i++) {
-      await elasticClient.index({
-        index: 'leases',
-        document: {
-          leaseId: 'lease_adidas_105',
-          title: 'Adidas Store Lease Section ' + (i + 1),
-          content: adidasLeaseSections[i],
-          pdfUrl: '/assets/leases/lease_adidas_105.pdf'
-        }
-      });
-    }
-
-    const zaraLeaseSections = parseMarkdownSections('docs/mock_data/leases/zara-lease.md');
-    for (let i = 0; i < zaraLeaseSections.length; i++) {
-      await elasticClient.index({
-        index: 'leases',
-        document: {
-          leaseId: 'lease_zara_106',
-          title: 'Zara Store Lease Section ' + (i + 1),
-          content: zaraLeaseSections[i],
-          pdfUrl: '/assets/leases/lease_zara_106.pdf'
-        }
-      });
-    }
-
-    const pumaLeaseSections = parseMarkdownSections('docs/mock_data/leases/puma-lease.md');
-    for (let i = 0; i < pumaLeaseSections.length; i++) {
-      await elasticClient.index({
-        index: 'leases',
-        document: {
-          leaseId: 'lease_puma_107',
-          title: 'Puma Store Lease Section ' + (i + 1),
-          content: pumaLeaseSections[i],
-          pdfUrl: '/assets/leases/lease_puma_107.pdf'
-        }
-      });
-    }
-
-    const appleLeaseSections = parseMarkdownSections('docs/mock_data/leases/apple-lease.md');
-    for (let i = 0; i < appleLeaseSections.length; i++) {
-      await elasticClient.index({
-        index: 'leases',
-        document: {
-          leaseId: 'lease_apple_108',
-          title: 'Apple Store Lease Section ' + (i + 1),
-          content: appleLeaseSections[i],
-          pdfUrl: '/assets/leases/lease_apple_108.pdf'
-        }
-      });
-    }
-
-    // Index Manual Files
-    console.log('Indexing Equipment manuals...');
-    const carrierManualSections = parseMarkdownSections('docs/mock_data/manuals/carrier-hvac.md');
-    for (let i = 0; i < carrierManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Carrier Model-50TJ',
-          title: 'Carrier HVAC Manual Part ' + (i + 1),
-          content: carrierManualSections[i],
-          pdfUrl: '/assets/manuals/carrier-hvac.pdf'
-        }
-      });
-    }
-
-    const otisManualSections = parseMarkdownSections('docs/mock_data/manuals/otis-escalator.md');
-    for (let i = 0; i < otisManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Otis Model-NPE',
-          title: 'Otis Escalator Manual Part ' + (i + 1),
-          content: otisManualSections[i],
-          pdfUrl: '/assets/manuals/otis-escalator.pdf'
-        }
-      });
-    }
-
-    const schindlerManualSections = parseMarkdownSections('docs/mock_data/manuals/schindler-elevator.md');
-    for (let i = 0; i < schindlerManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Schindler Model-9300',
-          title: 'Schindler Elevator Manual Part ' + (i + 1),
-          content: schindlerManualSections[i],
-          pdfUrl: '/assets/manuals/schindler-elevator.pdf'
-        }
-      });
-    }
-
-    const rheemManualSections = parseMarkdownSections('docs/mock_data/manuals/rheem-hvac.md');
-    for (let i = 0; i < rheemManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Rheem Model-Classic',
-          title: 'Rheem HVAC Manual Part ' + (i + 1),
-          content: rheemManualSections[i],
-          pdfUrl: '/assets/manuals/rheem-hvac.pdf'
-        }
-      });
-    }
-
-    const honeywellManualSections = parseMarkdownSections('docs/mock_data/manuals/honeywell-thermostat.md');
-    for (let i = 0; i < honeywellManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Honeywell Model-T6',
-          title: 'Honeywell Thermostat Manual Part ' + (i + 1),
-          content: honeywellManualSections[i],
-          pdfUrl: '/assets/manuals/honeywell-thermostat.pdf'
-        }
-      });
-    }
-
-    const mcquayManualSections = parseMarkdownSections('docs/mock_data/manuals/mcquay-chiller.md');
-    for (let i = 0; i < mcquayManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'McQuay Model-WSC',
-          title: 'McQuay Chiller Manual Part ' + (i + 1),
-          content: mcquayManualSections[i],
-          pdfUrl: '/assets/manuals/mcquay-chiller.pdf'
-        }
-      });
-    }
-
-    const culliganManualSections = parseMarkdownSections('docs/mock_data/manuals/culligan-softener.md');
-    for (let i = 0; i < culliganManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Culligan Model-HE',
-          title: 'Culligan Softener Manual Part ' + (i + 1),
-          content: culliganManualSections[i],
-          pdfUrl: '/assets/manuals/culligan-softener.pdf'
-        }
-      });
-    }
-
-    const lutronManualSections = parseMarkdownSections('docs/mock_data/manuals/lutron-lighting.md');
-    for (let i = 0; i < lutronManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Lutron Model-Quantum',
-          title: 'Lutron Lighting Manual Part ' + (i + 1),
-          content: lutronManualSections[i],
-          pdfUrl: '/assets/manuals/lutron-lighting.pdf'
-        }
-      });
-    }
-
-    const koneManualSections = parseMarkdownSections('docs/mock_data/manuals/kone-escalator.md');
-    for (let i = 0; i < koneManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Kone Model-TravelMaster',
-          title: 'Kone Escalator Manual Part ' + (i + 1),
-          content: koneManualSections[i],
-          pdfUrl: '/assets/manuals/kone-escalator.pdf'
-        }
-      });
-    }
-
-    const generacManualSections = parseMarkdownSections('docs/mock_data/manuals/generac-generator.md');
-    for (let i = 0; i < generacManualSections.length; i++) {
-      await elasticClient.index({
-        index: 'manuals',
-        document: {
-          equipmentModel: 'Generac Model-Protector',
-          title: 'Generac Generator Manual Part ' + (i + 1),
-          content: generacManualSections[i],
-          pdfUrl: '/assets/manuals/generac-generator.pdf'
-        }
-      });
-    }
-
-    // Flush indexes to make docs available instantly
-    await elasticClient.indices.refresh({ index: '_all' });
-    console.log('Elasticsearch Seeding Completed successfully.');
-
-  } catch (error) {
-    console.error('Elasticsearch Seeding failed:', error);
-    process.exit(1);
   }
 
   console.log('--- Database Seeding Complete ---');

@@ -39,6 +39,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
+        name: 'search_leases',
+        description: 'Perform keyword search on tenant leases to locate liability, cost rules, and repair boundaries. Enforces tenant data isolation by filtering by leaseId.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            leaseId: {
+              type: 'string',
+              description: 'The unique lease ID (e.g., lease_nike_104, lease_adidas_105) of the tenant calling RAG.'
+            },
+            query: {
+              type: 'string',
+              description: 'The search query relating to liabilities (e.g. HVAC responsibility, storefront windows, repair limits).'
+            }
+          },
+          required: ['leaseId', 'query']
+        }
+      },
+      {
+        name: 'search_manuals',
+        description: 'Search diagnostic guides and troubleshooting manuals for specific equipment models.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            equipment_model: {
+              type: 'string',
+              description: 'The equipment brand/model model code (e.g. Carrier Model-50TJ, Otis Model-NPE).'
+            },
+            query: {
+              type: 'string',
+              description: 'Troubleshooting symptoms, error codes, or procedures (e.g. error code E-04, AC warm air).'
+            }
+          },
+          required: ['equipment_model', 'query']
+        }
+      },
+      {
         name: 'query_active_staff',
         description: 'Query active mall technicians/staff filtered by skill and current location/sector.',
         inputSchema: {
@@ -108,6 +144,126 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const database = await getDb();
 
   try {
+    if (name === 'search_leases') {
+      const { leaseId, query } = args as { leaseId: string; query: string };
+      console.error(`[MongoDB MCP] Atlas Search leases for: "${query}" under lease: "${leaseId}"`);
+
+      const pipeline = [
+        {
+          $search: {
+            index: 'leases_search',
+            compound: {
+              must: [
+                {
+                  text: {
+                    query,
+                    path: ['content', 'title'],
+                    fuzzy: {}
+                  }
+                }
+              ],
+              filter: [
+                {
+                  text: {
+                    query: leaseId,
+                    path: 'leaseId'
+                  }
+                }
+              ]
+            }
+          }
+        },
+        { $limit: 3 },
+        {
+          $project: {
+            _id: 1,
+            leaseId: 1,
+            title: 1,
+            content: 1,
+            score: { $meta: 'searchScore' }
+          }
+        }
+      ];
+
+      const results = await database.collection('leases').aggregate(pipeline).toArray();
+      const hits = results.map(doc => ({
+        id: doc._id.toString(),
+        leaseId: doc.leaseId,
+        title: doc.title,
+        content: doc.content,
+        score: doc.score
+      }));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(hits)
+          }
+        ]
+      };
+    }
+
+    if (name === 'search_manuals') {
+      const { equipment_model, query } = args as { equipment_model: string; query: string };
+      console.error(`[MongoDB MCP] Atlas Search manuals for model: "${equipment_model}", query: "${query}"`);
+
+      const pipeline = [
+        {
+          $search: {
+            index: 'manuals_search',
+            compound: {
+              must: [
+                {
+                  text: {
+                    query,
+                    path: ['content', 'title'],
+                    fuzzy: {}
+                  }
+                }
+              ],
+              filter: [
+                {
+                  text: {
+                    query: equipment_model,
+                    path: 'equipmentModel'
+                  }
+                }
+              ]
+            }
+          }
+        },
+        { $limit: 3 },
+        {
+          $project: {
+            _id: 1,
+            equipmentModel: 1,
+            title: 1,
+            content: 1,
+            score: { $meta: 'searchScore' }
+          }
+        }
+      ];
+
+      const results = await database.collection('manuals').aggregate(pipeline).toArray();
+      const hits = results.map(doc => ({
+        id: doc._id.toString(),
+        equipmentModel: doc.equipmentModel,
+        title: doc.title,
+        content: doc.content,
+        score: doc.score
+      }));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(hits)
+          }
+        ]
+      };
+    }
+
     if (name === 'check_active_work_orders') {
       const { tenantId } = args as { tenantId: string };
       console.error(`[MongoDB MCP] Checking active work orders for tenant: ${tenantId}`);

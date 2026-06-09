@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '@/state/store';
 import { useQuery } from '@tanstack/react-query';
 import { searchKnowledgeBase } from '@/api/client';
-import { highlightKeywords } from '@/utils/markdown';
+import { buildSearchSnippet, highlightKeywords } from '@/utils/markdown';
 
 /**
  * Component managing the Knowledge RAG Explorer page.
@@ -194,7 +194,8 @@ export const KnowledgeBase: React.FC = () => {
               const metadataText = isLease ? `Lease ID: ${hit.leaseId}` : `Model: ${hit.equipmentModel}`;
 
               const highlightedTitle = highlightKeywords(hit.title, submittedQuery);
-              const highlightedContent = highlightKeywords(hit.content, submittedQuery);
+              const contextualSnippet = buildSearchSnippet(hit.content, submittedQuery, 5);
+              const highlightedContent = highlightKeywords(contextualSnippet, submittedQuery);
 
               return (
                 <div key={hit.id} className="rag-hit card">

@@ -14,7 +14,6 @@ class Settings(BaseSettings):
 
     mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
     mongo_db: str = Field(default="operio", alias="MONGO_DB")
-    elastic_uri: str = Field(default="http://localhost:9200", alias="ELASTIC_URI")
 
     phoenix_project_name: str = Field(
         default="operio-agent", alias="PHOENIX_PROJECT_NAME"
@@ -48,10 +47,6 @@ class Settings(BaseSettings):
         default=["npx", "tsx", "mcp_servers/mongodb-server.ts"],
         alias="MONGO_MCP_COMMAND",
     )
-    elastic_mcp_command: List[str] = Field(
-        default=["npx", "tsx", "mcp_servers/elastic-server.ts"],
-        alias="ELASTIC_MCP_COMMAND",
-    )
     phoenix_mcp_command: List[str] = Field(
         default=["npx", "-y", "@arizeai/phoenix-mcp"],
         alias="PHOENIX_MCP_COMMAND",
@@ -59,6 +54,12 @@ class Settings(BaseSettings):
 
     landlord_autonomous_limit: float = Field(
         default=150.0, alias="LANDLORD_AUTONOMOUS_LIMIT"
+    )
+    chat_rate_limit_requests: int = Field(
+        default=5, alias="CHAT_RATE_LIMIT_REQUESTS"
+    )
+    chat_rate_limit_window: int = Field(
+        default=60, alias="CHAT_RATE_LIMIT_WINDOW"
     )
 
 

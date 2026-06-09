@@ -20,9 +20,6 @@ db = mongo_client[settings.mongo_db]
 # 2. Populate application state manually for Starlette TestClient (bypassing lifespan)
 app.state.mongo_client = mongo_client
 app.state.db = db
-from elasticsearch import Elasticsearch
-
-app.state.elastic_client = Elasticsearch(settings.elastic_uri)
 
 # Force legacy backend for mocked unit tests
 settings.reasoning_backend = "legacy"

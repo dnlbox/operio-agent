@@ -11,7 +11,6 @@ dependencies = [
     "openinference-instrumentation-google-genai>=0.1.0",
     "mcp>=1.0.0",
     "pymongo>=4.7.2",
-    "elasticsearch>=8.13.0,<9.0.0",
     "python-dotenv>=1.0.1",
     "pydantic>=2.7.1",
     "opentelemetry-api>=1.24.0",

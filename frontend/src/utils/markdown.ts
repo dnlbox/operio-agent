@@ -24,6 +24,55 @@ export function parseMarkdown(text: string): string {
 }
 
 /**
+ * Escapes query terms so they can be safely embedded in a regular expression.
+ *
+ * @param query The raw search query.
+ * @returns Escaped regex-safe terms longer than two characters.
+ */
+function getSearchTerms(query: string): string[] {
+  return query
+    .split(/\s+/)
+    .map((term) => term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'))
+    .filter((term) => term.length > 2);
+}
+
+/**
+ * Extracts a contextual snippet around the first matching line so retrieval cards
+ * show the relevant passage instead of the full document excerpt.
+ *
+ * @param text The source text content.
+ * @param query The active search query.
+ * @param contextLineCount The number of lines to keep above and below the first hit.
+ * @returns A plain-text snippet with preserved line breaks.
+ */
+export function buildSearchSnippet(
+  text: string,
+  query: string,
+  contextLineCount = 5
+): string {
+  if (!text) return '';
+
+  const lines = text.split(/\r?\n/);
+  const terms = getSearchTerms(query);
+  if (lines.length === 0) return text;
+
+  if (terms.length === 0) {
+    return lines.slice(0, contextLineCount * 2 + 1).join('\n');
+  }
+
+  const regex = new RegExp(`(${terms.join('|')})`, 'i');
+  const firstMatchIndex = lines.findIndex((line) => regex.test(line));
+  const matchIndex = firstMatchIndex >= 0 ? firstMatchIndex : 0;
+  const startIndex = Math.max(0, matchIndex - contextLineCount);
+  const endIndex = Math.min(lines.length - 1, matchIndex + contextLineCount);
+  const visibleLines = lines.slice(startIndex, endIndex + 1);
+  const prefix = startIndex > 0 ? '...\n' : '';
+  const suffix = endIndex < lines.length - 1 ? '\n...' : '';
+
+  return `${prefix}${visibleLines.join('\n')}${suffix}`.trim();
+}
+
+/**
  * Highlights matches of query keywords in a text block using HTML <mark> tags.
  * 
  * @param text The source text.
@@ -34,10 +83,7 @@ export function highlightKeywords(text: string, query: string): string {
   if (!text) return '';
   if (!query) return text.replace(/\n/g, '<br>');
 
-  const terms = query
-    .split(/\s+/)
-    .map(t => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'))
-    .filter(t => t.length > 2);
+  const terms = getSearchTerms(query);
 
   if (terms.length === 0) {
     return text.replace(/\n/g, '<br>');

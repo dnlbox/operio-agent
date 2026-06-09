@@ -32,29 +32,29 @@ if settings.arize_api_key and settings.arize_space_id:
     }
 else:
     print(
-        f"[Brain] Registering OpenTelemetry tracer with Phoenix project "
-        f"'{settings.phoenix_project_name}' at {settings.phoenix_collector_endpoint}..."
+        "[Brain] ARIZE_API_KEY / ARIZE_SPACE_ID not set — tracing disabled."
     )
-    endpoint = f"{settings.phoenix_collector_endpoint}/v1/traces"
+    endpoint = None
     headers = None
 
-try:
-    register_kwargs = {
-        "project_name": settings.phoenix_project_name,
-        "endpoint": endpoint,
-        "auto_instrument": True,
-    }
-    if headers:
-        register_kwargs["headers"] = headers
+if endpoint:
+    try:
+        register_kwargs: dict[str, Any] = {
+            "project_name": settings.phoenix_project_name,
+            "endpoint": endpoint,
+            "auto_instrument": True,
+        }
+        if headers:
+            register_kwargs["headers"] = headers
 
-    tracer_provider = register(**register_kwargs)
-    # Instrument the official google-genai SDK
-    GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-    print("[Brain] Phoenix/Arize tracing instrumentation completed successfully.")
-except Exception as e:
-    print(
-        f"[Brain] Phoenix/Arize tracing registration failed (continuing without tracing): {e}"
-    )
+        tracer_provider = register(**register_kwargs)
+        # Instrument the official google-genai SDK
+        GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+        print("[Brain] Arize tracing instrumentation completed successfully.")
+    except Exception as e:
+        print(
+            f"[Brain] Arize tracing registration failed (continuing without tracing): {e}"
+        )
 
 
 # 2. Context Variables for Secure Session Context Injection
@@ -333,7 +333,7 @@ class OperioBrain:
 
         print(f"[Tool: search_leases] Query: '{query}' for Lease ID: {lease_id}")
         return await self.mcp_manager.call_tool(
-            "elasticsearch", "search_leases", {"leaseId": lease_id, "query": query}
+            "mongodb", "search_leases", {"leaseId": lease_id, "query": query}
         )
 
     async def search_manuals(self, equipment_model: str, query: str) -> str:
@@ -352,7 +352,7 @@ class OperioBrain:
             f"[Tool: search_manuals] Model: '{equipment_model}', Query: '{query}'"
         )
         return await self.mcp_manager.call_tool(
-            "elasticsearch",
+            "mongodb",
             "search_manuals",
             {"equipment_model": equipment_model, "query": query},
         )
