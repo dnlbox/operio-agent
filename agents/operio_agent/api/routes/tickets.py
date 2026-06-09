@@ -1,5 +1,6 @@
 """API routes for work order tickets management."""
 
+from datetime import datetime, timezone
 from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -74,7 +75,7 @@ def approve_ticket(
             "$push": {
                 "timeline": {
                     "status": "Dispatched (Approved by Manager)",
-                    "timestamp": "2026-06-05T15:55:00Z",  # Mock standard time
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "notes": approval.manager_notes or "Approved via command control",
                 }
             },
@@ -153,7 +154,7 @@ def reject_ticket(
             "$push": {
                 "timeline": {
                     "status": "Rejected",
-                    "timestamp": "2026-06-05T15:55:00Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 }
             },
         },

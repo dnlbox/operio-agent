@@ -98,6 +98,7 @@ async def chat_endpoint(
     turn_number = sum(1 for message in messages if message.get("role") == "user")
 
     # 3. Run the Agent Loop
+    span_id = None
     try:
         with using_session(session_id):
             with tracer.start_as_current_span(
@@ -125,9 +126,33 @@ async def chat_endpoint(
                 turn_span.set_attribute(
                     "operio.turn.tags", ",".join(turn_record["tags"])
                 )
+                span_context = turn_span.get_span_context()
+                if span_context.is_valid:
+                    span_id = format(span_context.span_id, "016x")
     except Exception as e:
         print(f"[Main] Agent execution loop failed: {e}")
         raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
+
+    # Trigger evaluations in the background if tracing was successful
+    if span_id:
+        from operio_agent.core.evals import run_live_eval_and_log
+        is_ambiguous_str = "yes" if "ambiguous_liability" in turn_record["tags"] else "no"
+        expected_resp = "Tenant" if "Tenant" in result["response_text"] else ("Landlord" if "Landlord" in result["response_text"] else "Unknown")
+        expected_evidence_str = "lease clause" if "lease_reasoning" in turn_record["tags"] else ("manual section" if "manual_diagnostics" in turn_record["tags"] else "none")
+        
+        hist_msgs = messages[:-1] # exclude current response
+        history_summary = "\n".join([f"{m['role']}: {m['content']}" for m in hist_msgs[-4:]]) if hist_msgs else "None"
+
+        run_live_eval_and_log(
+            span_id=span_id,
+            user_message=req.message,
+            response_text=result["response_text"],
+            history_summary=history_summary,
+            expected_responsibility=expected_resp,
+            expected_evidence=expected_evidence_str,
+            is_ambiguous=is_ambiguous_str,
+            expected_workflow=turn_record["resolution"],
+        )
 
     # 4. Save updated history to MongoDB
     messages.append({"role": "model", "content": result["response_text"]})

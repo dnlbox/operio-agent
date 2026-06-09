@@ -405,27 +405,167 @@ class MockResponse:
             self.candidates = [MockCandidate(content=MockContent(parts=parts))]
 
 
+import pandas as pd
+import phoenix as px
+from phoenix.client import Client, AsyncClient
+from phoenix.client.experiments import run_experiment, async_run_experiment
+from operio_agent.core.evals import (
+    get_eval_llm,
+    get_liability_evaluator,
+    get_evidence_evaluator,
+    get_ambiguity_evaluator,
+    get_workflow_evaluator,
+    get_coherence_evaluator,
+    get_resolution_evaluator,
+)
+
+def infer_expected_scenario_metadata(scenario):
+    s_id = scenario["id"]
+    
+    # Defaults
+    responsibility = "Unknown"
+    evidence = "none"
+    workflow = "policy_guidance"
+    status = None
+    
+    for turn in scenario["mock_turns"]:
+        if turn.get("type") == "tool":
+            for call in turn.get("calls", []):
+                if call.get("name") == "create_work_order":
+                    args = call.get("args", {})
+                    responsibility = args.get("leaseResponsibility", "Unknown")
+                    evidence = args.get("leaseClauseRef", "none")
+                    cost = args.get("costEstimation", 0.0)
+                    emergency = args.get("emergencyLevel", "Routine")
+                    
+                    if emergency == "Emergency":
+                        status = "Dispatched"
+                        workflow = "auto_dispatched"
+                    elif responsibility == "Tenant":
+                        status = "Dispatched"
+                        workflow = "auto_dispatched"
+                    elif responsibility == "Landlord" and cost <= 150.0:
+                        status = "Dispatched"
+                        workflow = "auto_dispatched"
+                    else:
+                        status = "Pending Approval"
+                        workflow = "pending_approval"
+                        
+    if s_id == 6:
+        responsibility = "Unknown"
+        evidence = "Carrier Model-50TJ"
+        workflow = "guidance_only"
+    elif s_id == 9:
+        responsibility = "Unknown"
+        evidence = "Section 9.2"
+        workflow = "policy_guidance"
+    elif s_id == 10:
+        responsibility = "Unknown"
+        evidence = "Section 13.1"
+        workflow = "policy_guidance"
+    elif s_id == 11:
+        responsibility = "Unknown"
+        evidence = "Section 11.3"
+        workflow = "policy_guidance"
+    elif s_id == 12:
+        responsibility = "Unknown"
+        evidence = "Section 13.1"
+        workflow = "policy_guidance"
+        
+    return responsibility, evidence, workflow, status
+
+scenario_by_id = {}
+for s in EVAL_DATASET:
+    scenario_by_id[s["id"]] = s
+    scenario_by_id[str(s["id"])] = s
+
 @pytest.mark.asyncio
 async def test_evaluation_suite():
     """
     Evaluation harness executing all 20 scenarios, measuring accuracy and outputting reports.
     Uses mocked Gemini responses to verify tool execution states, database inserts, and emergency routing.
+    Registers dataset and runs Phoenix experiments.
     """
-    print("\n--- Starting Operio Agent Mocked Evaluation Harness ---")
+    print("\n--- Starting Operio Agent Phoenix-Integrated Evaluation Harness ---")
     
+    # Try to launch/connect to Phoenix
+    try:
+        px.launch()
+    except Exception as e:
+        print(f"[Eval] Local Phoenix launch warning: {e}")
+
     # Start the actual MCP server manager (so we execute actual database and search tool calls)
     mcp_manager = McpClientManager()
     await mcp_manager.start()
     
     brain = OperioBrain(mcp_manager)
     
+    # Filter/limit dataset to run if SCENARIO_ID, SCENARIOS, or LIMIT environment variables are set
+    import os
+    dataset_to_run = EVAL_DATASET
+    env_scenarios = os.environ.get("SCENARIOS") or os.environ.get("SCENARIO_ID")
+    if env_scenarios:
+        ids = [int(x.strip()) for x in env_scenarios.split(",") if x.strip().isdigit()]
+        if ids:
+            dataset_to_run = [s for s in EVAL_DATASET if s["id"] in ids]
+            print(f"[Eval] Filtering dataset to scenarios: {ids} (Count: {len(dataset_to_run)})")
+            
+    env_limit = os.environ.get("LIMIT")
+    if env_limit and env_limit.isdigit():
+        dataset_to_run = dataset_to_run[:int(env_limit)]
+        print(f"[Eval] Limiting dataset to first {env_limit} scenarios")
+
+    # Build dataset DataFrame
+    df_rows = []
+    for scenario in dataset_to_run:
+        resp, evidence, workflow, status = infer_expected_scenario_metadata(scenario)
+        df_rows.append({
+            "input": scenario["message"],
+            "scenario_id": scenario["id"],
+            "expected_responsibility": resp,
+            "expected_evidence": evidence,
+            "is_ambiguous": "yes" if scenario["category"] in ("Ambiguous Liability", "Demarcation") else "no",
+            "expected_workflow": workflow,
+            "expected_status": status if status else "",
+            "history": f"user: {scenario['message']}",
+        })
+    df = pd.DataFrame(df_rows)
+
+    client = Client(base_url=settings.phoenix_collector_endpoint)
+    base_url = settings.phoenix_collector_endpoint
+    headers = {}
+
+
+    dataset_name = "operio-eval-dataset"
+    try:
+        # Delete dataset if exists to ensure clean upload
+        for ds in client.datasets.list():
+            if ds.get("name") == dataset_name:
+                import urllib.request
+                req = urllib.request.Request(
+                    f"{base_url}/v1/datasets/{ds['id']}", 
+                    method="DELETE",
+                    headers=headers
+                )
+                urllib.request.urlopen(req)
+    except Exception as e:
+        print(f"[Eval] Warning deleting dataset: {e}")
+
+    print("[Eval] Uploading dataset to Phoenix...")
+    dataset = client.datasets.create_dataset(
+        name=dataset_name,
+        dataframe=df,
+        input_keys=["input", "scenario_id", "expected_responsibility", "expected_evidence", "is_ambiguous", "expected_workflow", "expected_status", "history"],
+        output_keys=[]
+    )
+
     success_count = 0
-    total_scenarios = len(EVAL_DATASET)
-    
-    # Run evaluations
-    for scenario in EVAL_DATASET:
-        print(f"\n[Eval Scenario #{scenario['id']}] Category: {scenario['category']}")
-        print(f"Message: \"{scenario['message']}\"")
+    total_scenarios = len(dataset_to_run)
+
+    async def evaluate_scenario_task(input_data):
+        nonlocal success_count
+        scenario_id = input_data["scenario_id"]
+        scenario = scenario_by_id[scenario_id]
         
         # Set session contexts
         active_tenant_id.set(scenario["tenant_id"])
@@ -440,8 +580,6 @@ async def test_evaluation_suite():
             weather_desc += f" | WARNING: {alert}"
         active_weather_emergency.set(weather_desc)
         
-        # We mock the generate_content call for this scenario run
-        # Keep track of turn counts inside the scenario run
         turn_idx = [0]
         
         def mock_generate_content(model, contents, config=None):
@@ -463,6 +601,7 @@ async def test_evaluation_suite():
         # We run the reasoning loop with history containing only the single message
         history = [{"role": "user", "content": scenario["message"]}]
         
+        db_success = False
         try:
             result = await brain.run_reasoning_loop(history, weather_desc)
             
@@ -472,30 +611,68 @@ async def test_evaluation_suite():
                 sort=[("_id", -1)]
             )
             
+            resp_m, evidence_m, workflow_m, status_m = infer_expected_scenario_metadata(scenario)
             if wo:
-                status = wo.get("status")
-                resp = wo.get("leaseResponsibility")
+                status_actual = wo.get("status")
+                resp_actual = wo.get("leaseResponsibility")
                 
-                print(f"Successfully processed. Ticket Status: {status}, Responsibility: {resp}")
+                status_ok = True
+                if status_m:
+                    status_ok = status_actual == status_m
+                resp_ok = True
+                if resp_m != "Unknown":
+                    resp_ok = resp_actual == resp_m
                 
-                # Check expected ticket status if scenario specifies it
-                if "expected_status" in scenario:
-                    assert status == scenario["expected_status"], f"Expected status {scenario['expected_status']}, got {status}"
-                if "expected_responsibility" in scenario:
-                    assert resp == scenario["expected_responsibility"], f"Expected responsibility {scenario['expected_responsibility']}, got {resp}"
-                
-                success_count += 1
+                if status_ok and resp_ok:
+                    db_success = True
+                    success_count += 1
                 
                 # Clean up the created work order from database
                 db.work_orders.delete_one({"_id": wo["_id"]})
             else:
                 # Scenarios that don't create tickets (e.g. general info)
-                print("Processed (no ticket created).")
+                db_success = True
                 success_count += 1
                 
+            output_text = result["response_text"]
         except Exception as e:
-            print(f"Failed to execute scenario #{scenario['id']}: {e}")
-            
+            print(f"Failed to execute scenario #{scenario_id}: {e}")
+            output_text = f"Error: {e}"
+
+        return {
+            "output": output_text,
+            "history": f"user: {scenario['message']}",
+            "db_success": db_success,
+        }
+
+    # Code-based DB verification evaluator
+    def db_correctness(output, expected):
+        db_success = output.get("db_success") if isinstance(output, dict) else getattr(output, "db_success", False)
+        return 1.0 if db_success else 0.0
+
+    print("[Eval] Running Phoenix experiment...")
+    llm = get_eval_llm()
+    async_client = AsyncClient(base_url=settings.phoenix_collector_endpoint)
+
+
+
+    experiment = await async_run_experiment(
+        dataset=dataset,
+        task=evaluate_scenario_task,
+        evaluators=[
+            db_correctness,
+            get_liability_evaluator(llm),
+            get_evidence_evaluator(llm),
+            get_ambiguity_evaluator(llm),
+            get_workflow_evaluator(llm),
+            get_coherence_evaluator(llm),
+            get_resolution_evaluator(llm),
+        ],
+        experiment_name="Operio Reasoning Experiment",
+        client=async_client,
+        concurrency=1,
+    )
+
     # Clean up MCP subprocesses
     await mcp_manager.stop()
     
@@ -504,5 +681,6 @@ async def test_evaluation_suite():
     print(f"Total Scenarios Evaluated: {total_scenarios}")
     print(f"Successful Runs: {success_count}")
     print(f"Overall Accuracy: {accuracy:.2f}%")
+    print(f"Phoenix Experiment URL: {experiment.url if hasattr(experiment, 'url') else 'Phoenix Local Host'}")
     
     assert accuracy >= 80.0

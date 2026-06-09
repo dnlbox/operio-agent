@@ -58,17 +58,17 @@ Our project should speak directly to the backgrounds of the judges, who include:
 ---
 
 ## 🎯 Recommended Submission Strategy
-*   **Primary Track Recommendation:** **Elastic**
-*   **Why Elastic is the strongest wedge:** Operio's most differentiated moment is turning unstructured leases and equipment manuals into operational decisions. Semantic lease auditing is what makes the product feel novel instead of like another ticketing dashboard.
-*   **How to frame MongoDB and Arize:** Present MongoDB as the transactional control plane for work orders and staff state, and Phoenix as the trust layer that makes autonomous decisions reviewable.
+*   **Primary Track Recommendation:** **Arize**
+*   **Why Arize is the strongest wedge:** Operio's implementation features full-lifecycle observability and evaluation, which directly addresses the Arize Solutions rubric. We trace AGENT -> TOOL -> MCP operations, run 6 custom LLM-as-a-judge evaluators for trace verification, deploy `@arizeai/phoenix-mcp` for agent-level telemetry access, and utilize Phoenix experiments to benchmark the reasoning loop.
+*   **How to frame MongoDB and Elastic:** Present MongoDB as the transactional storage engine and Elastic as the hybrid retrieval engine that supplies context to the reasoning loop, both of which are traced and evaluated.
 *   **Three proof points to emphasize in the demo:**
-    1.  The agent retrieves the exact lease/manual evidence behind a decision.
-    2.  The agent autonomously routes routine work but pauses high-cost landlord-liable requests behind HITL.
-    3.  The entire reasoning chain is inspectable through trace and payload surfaces.
+    1.  The agent retrieves the exact lease/manual evidence and is traced in Phoenix with nested tool/MCP spans.
+    2.  Each chat turn is automatically evaluated by 6 custom LLM-as-a-judge classifiers and annotated back to the traces in Phoenix.
+    3.  A complete experiment dataset is uploaded to Phoenix, scoring reasoning accuracy across all 20 benchmark scenarios.
 
 ## ⏱️ Final 72-Hour Sprint
 1.  Polish the live demo path around three incidents: HVAC dispatch, roof leak approval gate, and manual-assisted escalator diagnosis.
 2.  Ship a stable hosted deployment and verify Phoenix, Elastic retrieval, and MongoDB-backed ticket transitions on that environment.
-3.  Record a tight 3-minute demo that shows tenant chat, trace, approval, and final dispatch without dead time.
+3.  Record a tight 3-minute demo that shows tenant chat, trace, approval, and final dispatch without dead time, highlighting the live evaluation annotations in Phoenix.
 4.  Make the GitHub repo self-explanatory: current architecture, working setup commands, open-source license, screenshots, and track choice.
-5.  Submit with a crisp one-sentence positioning line: "Operio is an autonomous mall operations agent that turns leases, manuals, and staff state into traceable dispatch decisions."
+5.  Submit with a crisp one-sentence positioning line: "Operio is an autonomous mall operations agent that turns leases, manuals, and staff state into traceable and evaluated dispatch decisions."

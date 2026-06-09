@@ -2,9 +2,13 @@
 
 import contextvars
 import json
+import os
 import sys
 from contextlib import nullcontext
 from typing import Any, Dict, List
+from google.adk.agents import Agent
+from google.adk.events import Event
+from google.adk.runners import InMemoryRunner, RunConfig
 from google import genai
 from google.genai import types
 from opentelemetry import trace
@@ -16,23 +20,42 @@ from operio_agent.core.mcp_client import McpClientManager
 from operio_agent.core.prompts import SYSTEM_INSTRUCTION_TEMPLATE
 
 # 1. Initialize Phoenix Tracing Provider
-print(
-    f"[Brain] Registering OpenTelemetry tracer with Phoenix project "
-    f"'{settings.phoenix_project_name}' at {settings.phoenix_collector_endpoint}..."
-)
-try:
-    tracer_provider = register(
-        project_name=settings.phoenix_project_name,
-        endpoint=f"{settings.phoenix_collector_endpoint}/v1/traces",
-        auto_instrument=True,
+if settings.arize_api_key and settings.arize_space_id:
+    print(
+        f"[Brain] Registering OpenTelemetry tracer with Arize AX hosted platform "
+        f"project '{settings.phoenix_project_name}' and space '{settings.arize_space_id}'..."
     )
+    endpoint = "https://otlp.arize.com/v1/traces"
+    headers = {
+        "arize-space-id": settings.arize_space_id,
+        "arize-api-key": settings.arize_api_key,
+    }
+else:
+    print(
+        f"[Brain] Registering OpenTelemetry tracer with Phoenix project "
+        f"'{settings.phoenix_project_name}' at {settings.phoenix_collector_endpoint}..."
+    )
+    endpoint = f"{settings.phoenix_collector_endpoint}/v1/traces"
+    headers = None
+
+try:
+    register_kwargs = {
+        "project_name": settings.phoenix_project_name,
+        "endpoint": endpoint,
+        "auto_instrument": True,
+    }
+    if headers:
+        register_kwargs["headers"] = headers
+
+    tracer_provider = register(**register_kwargs)
     # Instrument the official google-genai SDK
     GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-    print("[Brain] Phoenix tracing instrumentation completed successfully.")
+    print("[Brain] Phoenix/Arize tracing instrumentation completed successfully.")
 except Exception as e:
     print(
-        f"[Brain] Phoenix tracing registration failed (continuing without tracing): {e}"
+        f"[Brain] Phoenix/Arize tracing registration failed (continuing without tracing): {e}"
     )
+
 
 # 2. Context Variables for Secure Session Context Injection
 active_tenant_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
@@ -58,41 +81,32 @@ class OperioBrain:
     """
 
     def __init__(self, mcp_manager: McpClientManager) -> None:
-        """Initializes the OperioBrain with the MCP manager and Gemini client.
+        """Initializes the OperioBrain with the MCP manager and reasoning client.
 
         Args:
             mcp_manager: The active McpClientManager to delegate tool calls to.
 
         Raises:
-            ValueError: If GEMINI_API_KEY is not configured in non-testing envs.
+            ValueError: If the legacy Gemini client is selected but not configured.
         """
         self.mcp_manager: McpClientManager = mcp_manager
-
-        # Initialize the official Google GenAI Client
-        api_key = settings.gemini_api_key
-        if not api_key:
-            if "pytest" in sys.modules or (
-                len(sys.argv) > 0 and "pytest" in sys.argv[0]
-            ):
-                print(
-                    "[Brain] GEMINI_API_KEY not set. Using dummy key for test collection."
-                )
-                self.client = genai.Client(api_key="DUMMY_KEY_FOR_TESTING")
-            else:
-                raise ValueError(
-                    "GEMINI_API_KEY environment variable is not set. "
-                    "Please configure a restricted Gemini API Key in your .env file "
-                    "to enable async tool and MCP execution."
-                )
-        else:
-            print(
-                "[Brain] Initializing Gemini Developer API client using GEMINI_API_KEY..."
-            )
-            self.client = genai.Client(api_key=api_key)
-
         self.model_name: str = settings.gemini_model_name
+        self.reasoning_backend: str = settings.reasoning_backend
+        self.adk_app_name: str = "operio-agent"
 
-        # Register tools
+        # Mirror .env-backed settings into process environment so ADK / Google
+        # SDKs pick them up consistently in local and deployed runtimes.
+        if settings.google_genai_use_vertexai:
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+        if settings.google_cloud_project:
+            os.environ["GOOGLE_CLOUD_PROJECT"] = settings.google_cloud_project
+        if settings.google_cloud_location:
+            os.environ["GOOGLE_CLOUD_LOCATION"] = settings.google_cloud_location
+        if settings.gemini_api_key:
+            os.environ.setdefault("GEMINI_API_KEY", settings.gemini_api_key)
+            os.environ.setdefault("GOOGLE_API_KEY", settings.gemini_api_key)
+
+        # Register tools once so both reasoning backends expose the same surface.
         self.tools = [
             self.search_leases,
             self.search_manuals,
@@ -100,7 +114,33 @@ class OperioBrain:
             self.create_work_order,
             self.update_work_order_status,
             self.check_active_work_orders,
+            self.query_telemetry,
         ]
+
+        self.client: genai.Client | None = None
+        api_key = settings.gemini_api_key
+        if not api_key and ("pytest" in sys.modules or (len(sys.argv) > 0 and "pytest" in sys.argv[0])):
+            self.client = genai.Client(api_key="DUMMY_KEY_FOR_TESTING")
+        elif api_key:
+            self.client = genai.Client(api_key=api_key)
+        elif settings.google_genai_use_vertexai:
+            self.client = genai.Client()
+
+        if self.reasoning_backend == "legacy":
+            if self.client is None:
+                raise ValueError(
+                    "GEMINI_API_KEY environment variable is not set. "
+                    "Please configure a restricted Gemini API Key in your .env file "
+                    "to enable async tool and MCP execution."
+                )
+            print("[Brain] Initializing Gemini Developer API client...")
+        else:
+            print(
+                "[Brain] Initializing ADK reasoning backend "
+                f"(vertexai={settings.google_genai_use_vertexai}, "
+                f"project={settings.google_cloud_project or 'adc-default'}, "
+                f"location={settings.google_cloud_location})..."
+            )
 
     @staticmethod
     def _record_timeline_step(
@@ -123,6 +163,156 @@ class OperioBrain:
                 "operio.timeline.preview": details[:500],
             },
         )
+
+    @staticmethod
+    def _extract_text_from_content(content: types.Content | None) -> str:
+        """Returns concatenated text parts from a content object."""
+
+        if not content or not content.parts:
+            return ""
+
+        parts = [part.text for part in content.parts if getattr(part, "text", None)]
+        return "\n".join(parts).strip()
+
+    @staticmethod
+    def _history_to_content(role: str, content: str) -> types.Content:
+        """Converts stored history messages into Google GenAI content objects."""
+
+        return types.Content(role=role, parts=[types.Part.from_text(text=content)])
+
+    def _build_adk_agent(self, system_instruction: str) -> Agent:
+        """Creates an ADK agent that mirrors the legacy tool surface."""
+
+        return Agent(
+            name="operio",
+            model=self.model_name,
+            instruction=system_instruction,
+            tools=self.tools,
+            generate_content_config=types.GenerateContentConfig(temperature=0.2),
+        )
+
+    async def _run_adk_reasoning_loop(
+        self, chat_history: list[dict[str, Any]], weather_context: str
+    ) -> dict[str, Any]:
+        """Runs the conversation through Google ADK."""
+
+        latest_user_message = ""
+        for msg in reversed(chat_history):
+            if msg.get("role") == "user":
+                latest_user_message = str(msg.get("content", ""))
+                break
+
+        if not latest_user_message:
+            return {"response_text": "", "timeline": []}
+
+        system_instruction = SYSTEM_INSTRUCTION_TEMPLATE.format(
+            weather_context=weather_context
+        )
+        decisions_timeline: list[dict[str, Any]] = []
+        final_text = ""
+
+        user_id = active_tenant_id.get() or "anonymous-tenant"
+        session_id = active_session_id.get() or "operio-session"
+        agent = self._build_adk_agent(system_instruction)
+        runner = InMemoryRunner(agent=agent, app_name=self.adk_app_name)
+
+        session = await runner.session_service.create_session(
+            app_name=self.adk_app_name, user_id=user_id, session_id=session_id
+        )
+
+        # Rehydrate the historical chat turns so the ADK run starts with the
+        # same state that the legacy Gemini loop would have seen.
+        for msg in chat_history[:-1]:
+            role = str(msg.get("role", ""))
+            content = str(msg.get("content", ""))
+            if role not in {"user", "model"} or not content:
+                continue
+
+            event = Event(
+                author="user" if role == "user" else agent.name,
+                content=self._history_to_content(role, content),
+            )
+            await runner.session_service.append_event(session, event)
+
+        session_context = using_session(session_id)
+        with session_context:
+            with tracer.start_as_current_span(
+                "operio.reasoning_loop",
+                attributes={
+                    SpanAttributes.OPENINFERENCE_SPAN_KIND: "AGENT",
+                    SpanAttributes.INPUT_VALUE: latest_user_message,
+                    "operio.tenant.id": active_tenant_id.get() or "",
+                    "operio.lease.id": active_lease_id.get() or "",
+                    "operio.weather.context": weather_context,
+                    "operio.reasoning.backend": self.reasoning_backend,
+                },
+            ) as agent_span:
+                async for event in runner.run_async(
+                    user_id=user_id,
+                    session_id=session_id,
+                    new_message=self._history_to_content("user", latest_user_message),
+                    run_config=RunConfig(max_llm_calls=8),
+                ):
+                    for call in event.get_function_calls():
+                        args = call.args or {}
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "tool_call",
+                                "title": f"Executing Tool: {call.name}",
+                                "details": f"Parameters: {json.dumps(args)}",
+                            },
+                        )
+
+                    for response in event.get_function_responses():
+                        response_payload = getattr(response, "response", {}) or {}
+                        details = (
+                            response_payload.get("result")
+                            if isinstance(response_payload, dict)
+                            and isinstance(response_payload.get("result"), str)
+                            else json.dumps(response_payload, default=str)
+                        )
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "tool_result",
+                                "title": f"Tool Result: {response.name}",
+                                "details": details,
+                            },
+                        )
+
+                    event_text = self._extract_text_from_content(event.content)
+                    if event_text and event.is_final_response():
+                        final_text = event_text
+                        self._record_timeline_step(
+                            decisions_timeline,
+                            {
+                                "type": "response",
+                                "title": "Final Response Formulation",
+                                "details": final_text,
+                            },
+                        )
+
+                if not final_text:
+                    final_text = (
+                        "Operational Guardrail Triggered: The agent did not return a "
+                        "final answer. Please contact property support."
+                    )
+                    self._record_timeline_step(
+                        decisions_timeline,
+                        {
+                            "type": "warning",
+                            "title": "No Final Response Captured",
+                            "details": "ADK completed without a final text reply.",
+                        },
+                    )
+
+                agent_span.set_attribute(SpanAttributes.OUTPUT_VALUE, final_text[:1000])
+                agent_span.set_attribute(
+                    "operio.timeline.step_count", len(decisions_timeline)
+                )
+
+        return {"response_text": final_text, "timeline": decisions_timeline}
 
     async def search_leases(self, query: str) -> str:
         """Search the lease agreement of the current tenant to locate liability, cost limits, and maintenance clauses.
@@ -283,9 +473,10 @@ class OperioBrain:
     async def run_reasoning_loop(
         self, chat_history: list[dict[str, Any]], weather_context: str
     ) -> dict[str, Any]:
-        """Executes the Gemini agent reasoning loop manually.
+        """Executes the configured agent reasoning loop.
 
-        Handles multi-turn tool calling, captures decision steps, and appends outputs.
+        Handles multi-turn tool calling, captures decision steps, and appends
+        outputs.
 
         Args:
             chat_history: List of chat messages in format [{"role": str, "content": str}].
@@ -294,6 +485,19 @@ class OperioBrain:
         Returns:
             dict[str, Any]: Dict containing response_text and decisions timeline list.
         """
+        if self.reasoning_backend == "adk":
+            return await self._run_adk_reasoning_loop(chat_history, weather_context)
+
+        return await self._run_legacy_reasoning_loop(chat_history, weather_context)
+
+    async def _run_legacy_reasoning_loop(
+        self, chat_history: list[dict[str, Any]], weather_context: str
+    ) -> dict[str, Any]:
+        """Executes the Gemini agent reasoning loop manually."""
+
+        if self.client is None:
+            raise ValueError("Legacy reasoning backend selected without a Gemini client.")
+
         max_agent_turns = 8
         turn_count = 0
         decisions_timeline: list[dict[str, Any]] = []
@@ -309,17 +513,9 @@ class OperioBrain:
             role = msg.get("role")
             content = msg.get("content")
             if role == "user":
-                sdk_messages.append(
-                    types.Content(
-                        role="user", parts=[types.Part.from_text(text=content)]
-                    )
-                )
+                sdk_messages.append(self._history_to_content("user", str(content)))
             elif role == "model":
-                sdk_messages.append(
-                    types.Content(
-                        role="model", parts=[types.Part.from_text(text=content)]
-                    )
-                )
+                sdk_messages.append(self._history_to_content("model", str(content)))
 
         latest_user_message = ""
         for msg in reversed(chat_history):
@@ -467,3 +663,21 @@ class OperioBrain:
                 )
 
         return {"response_text": final_text, "timeline": decisions_timeline}
+
+    async def query_telemetry(self, query: str = "") -> str:
+        """Query recent trace telemetry, evaluations, and datasets from the Phoenix server.
+
+        Args:
+            query: The name of the project or dataset, or filter to query.
+
+        Returns:
+            str: JSON string containing the telemetry details or list of traces.
+        """
+        print(f"[Tool: query_telemetry] Querying Arize Phoenix for '{query}'...")
+        try:
+            return await self.mcp_manager.call_tool(
+                "phoenix", "list_projects", {}
+            )
+        except Exception as e:
+            return json.dumps({"error": f"Failed to call Phoenix MCP server: {str(e)}"})
+

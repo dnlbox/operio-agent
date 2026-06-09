@@ -1,6 +1,6 @@
 """Configuration settings for the Operio Agent system."""
 
-from typing import List
+from typing import List, Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,9 +23,25 @@ class Settings(BaseSettings):
         default="http://localhost:6006", alias="PHOENIX_COLLECTOR_ENDPOINT"
     )
 
+    arize_api_key: str | None = Field(default=None, alias="ARIZE_API_KEY")
+    arize_space_id: str | None = Field(default=None, alias="ARIZE_SPACE_ID")
+
+
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model_name: str = Field(
         default="gemini-2.5-flash", alias="GEMINI_MODEL_NAME"
+    )
+    reasoning_backend: Literal["legacy", "adk"] = Field(
+        default="adk", alias="OPERIO_REASONING_BACKEND"
+    )
+    google_genai_use_vertexai: bool = Field(
+        default=True, alias="GOOGLE_GENAI_USE_VERTEXAI"
+    )
+    google_cloud_project: str | None = Field(
+        default=None, alias="GOOGLE_CLOUD_PROJECT"
+    )
+    google_cloud_location: str = Field(
+        default="us-central1", alias="GOOGLE_CLOUD_LOCATION"
     )
 
     mongo_mcp_command: List[str] = Field(
@@ -35,6 +51,10 @@ class Settings(BaseSettings):
     elastic_mcp_command: List[str] = Field(
         default=["npx", "tsx", "mcp_servers/elastic-server.ts"],
         alias="ELASTIC_MCP_COMMAND",
+    )
+    phoenix_mcp_command: List[str] = Field(
+        default=["npx", "-y", "@arizeai/phoenix-mcp"],
+        alias="PHOENIX_MCP_COMMAND",
     )
 
     landlord_autonomous_limit: float = Field(

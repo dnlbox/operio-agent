@@ -21,27 +21,32 @@ class McpClientManager:
         self,
         mongo_cmd: list[str] | None = None,
         elastic_cmd: list[str] | None = None,
+        phoenix_cmd: list[str] | None = None,
     ) -> None:
         """Initializes McpClientManager with server launch commands.
 
         Args:
             mongo_cmd: Command and args list to start MongoDB MCP server.
             elastic_cmd: Command and args list to start Elasticsearch MCP server.
+            phoenix_cmd: Command and args list to start Arize Phoenix MCP server.
         """
         from operio_agent.config import settings
 
         self.mongo_cmd: list[str] = mongo_cmd or settings.mongo_mcp_command
         self.elastic_cmd: list[str] = elastic_cmd or settings.elastic_mcp_command
+        self.phoenix_cmd: list[str] = phoenix_cmd or settings.phoenix_mcp_command
         self.exit_stack: AsyncExitStack = AsyncExitStack()
         self.mongo_session: ClientSession | None = None
         self.elastic_session: ClientSession | None = None
+        self.phoenix_session: ClientSession | None = None
 
     async def start(self) -> None:
-        """Launches both MCP servers and initializes client sessions.
+        """Launches all three MCP servers and initializes client sessions.
 
         Raises:
-            Exception: If launching either server subprocess fails.
+            Exception: If launching any server subprocess fails.
         """
+        import os
         mongo_params = StdioServerParameters(
             command=self.mongo_cmd[0], args=self.mongo_cmd[1:], env=None
         )
@@ -49,6 +54,19 @@ class McpClientManager:
         elastic_params = StdioServerParameters(
             command=self.elastic_cmd[0], args=self.elastic_cmd[1:], env=None
         )
+
+        from operio_agent.config import settings
+        phoenix_env = os.environ.copy()
+        # Set PHOENIX_BASE_URL for the Phoenix MCP server
+        if settings.arize_api_key and settings.arize_space_id:
+            phoenix_env["PHOENIX_BASE_URL"] = f"https://app.phoenix.arize.com/s/{settings.arize_space_id}"
+            phoenix_env["PHOENIX_API_KEY"] = settings.arize_api_key
+        else:
+            phoenix_env["PHOENIX_BASE_URL"] = settings.phoenix_collector_endpoint
+        phoenix_params = StdioServerParameters(
+            command=self.phoenix_cmd[0], args=self.phoenix_cmd[1:], env=phoenix_env
+        )
+
 
         try:
             print("[MCP Client Manager] Starting MongoDB MCP Server...")
@@ -78,8 +96,21 @@ class McpClientManager:
             print(f"[MCP Client Manager] Failed to start Elasticsearch MCP Server: {e}")
             raise e
 
+        try:
+            print("[MCP Client Manager] Starting Arize Phoenix MCP Server...")
+            phoenix_read_write = await self.exit_stack.enter_async_context(
+                stdio_client(phoenix_params)
+            )
+            self.phoenix_session = await self.exit_stack.enter_async_context(
+                ClientSession(phoenix_read_write[0], phoenix_read_write[1])
+            )
+            await self.phoenix_session.initialize()
+            print("[MCP Client Manager] Arize Phoenix MCP Server initialized.")
+        except Exception as e:
+            print(f"[MCP Client Manager] Failed to start Arize Phoenix MCP Server (continuing without it): {e}")
+
     async def stop(self) -> None:
-        """Cleans up and terminates both subprocesses via AsyncExitStack."""
+        """Cleans up and terminates all subprocesses via AsyncExitStack."""
         print("[MCP Client Manager] Terminating MCP servers and closing pipes...")
         await self.exit_stack.aclose()
         print("[MCP Client Manager] MCP servers stopped.")
@@ -116,6 +147,8 @@ class McpClientManager:
                     session = self.mongo_session
                 elif server_name == "elasticsearch":
                     session = self.elastic_session
+                elif server_name == "phoenix":
+                    session = self.phoenix_session
                 else:
                     raise ValueError(f"Unknown MCP server name: {server_name}")
 

@@ -24,6 +24,9 @@ from elasticsearch import Elasticsearch
 
 app.state.elastic_client = Elasticsearch(settings.elastic_uri)
 
+# Force legacy backend for mocked unit tests
+settings.reasoning_backend = "legacy"
+
 mcp_manager = McpClientManager()
 app.state.mcp_manager = mcp_manager
 app.state.brain = OperioBrain(mcp_manager)
