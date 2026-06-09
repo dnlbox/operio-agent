@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: operio-mongodb
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: operio-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9200:9200"
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: operio-phoenix
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: operio-app
+    depends_on:
+      - mongodb
+      - elasticsearch
+      - phoenix
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB=operio
+      - ELASTIC_URI=http://elasticsearch:9200
+      - PHOENIX_PROJECT_NAME=operio-agent
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
+      - OPERIO_REASONING_BACKEND=adk
+      - GOOGLE_GENAI_USE_VERTEXAI=true
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
+      - ARIZE_API_KEY=${ARIZE_API_KEY}
+      - ARIZE_SPACE_ID=${ARIZE_SPACE_ID}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: operio-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "6006:6006"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  elasticsearch_data:
+  caddy_data:
+  caddy_config:

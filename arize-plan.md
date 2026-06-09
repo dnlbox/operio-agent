@@ -1,11 +1,50 @@
 # Operio Agent — Arize Track: Jury Assessment & Execution Plan
 
-> Google Cloud Rapid Agent Hackathon · Submission deadline **June 11, 2026, 2:00 PM PDT** · ~3 days remaining as of June 8.
+> Google Cloud Rapid Agent Hackathon · Submission deadline **June 11, 2026, 2:00 PM PDT**.
 > Selected track: **Arize** (observability, LLM tracing, evaluators).
 
 ---
 
+## 0. Implementation Status — updated June 8 (post-build)
+
+**The Arize track is now eligible and competitive.** All three deciding Arize items (A, B, C) are
+implemented and verified in code; the only remaining hard blocker is the live hosted deployment.
+
+| Plan item | Status | Evidence |
+| --- | --- | --- |
+| **A. Arize MCP server invoked at runtime** | ✅ Done | 3rd MCP server started + pointed at Arize AX (`mcp_client.py:99-110`, `:59-68`); exposed as `query_telemetry` agent tool in `self.tools` (`brain.py:117`) calling `call_tool("phoenix", "list_projects")` (`brain.py:678-680`). |
+| **B. 6 LLM-as-judge evaluators** | ✅ Done | `create_classifier` with Gemini/Vertex judge for all six (`evals.py:36-159`); logged back via `SpanEvaluations`/`log_evaluations` (`evals.py:202-234`); fired live per turn from `chat.py:146`. |
+| **B. Benchmark experiment** | ✅ Done | `run_experiment` over 20 scenarios, asserts `accuracy >= 80.0` (`evaluate_brain.py:411,659-686`) — **passing >80% per latest run.** |
+| **C. Remote-reachable observability** | ✅ Done | OTLP export to `https://otlp.arize.com/v1/traces` with space-id/api-key headers (`brain.py:23-50`); local Phoenix as fallback. |
+| **Tier-0: ADK + Vertex default** | ✅ Done | `reasoning_backend="adk"`, `google_genai_use_vertexai=True` defaults (`config.py:34-39`); `google-cloud-aiplatform` + `arize-phoenix-evals` in `pyproject.toml`. |
+| **Tier-0: mock timestamp fix** | ✅ Done | `datetime.now(timezone.utc)` (`tickets.py:78,157`). |
+| **Tier-0: HACKATHON.md repositioned to Arize** | ✅ Done | Commit `Update HACKATHON.md with revised submission strategy`. |
+| **Tier-0: live hosted agent** | 🔴 **Open — last blocker** | No Dockerfile/Cloud Run/cloudbuild; `deploy-pages.yml:34` still ships static `./docs`. A judge cannot run the agent from the submission URL. |
+| **README primary-track + search honesty** | ⚠️ Partial | `README.md` still names Elastic as primary and calls keyword search "semantic"; align to Arize. |
+| Demo video (<3 min) + Devpost form | ❓ Outstanding | Confirm recorded, public, and submitted. |
+
+### What's left (priority order, ~remaining time)
+
+1. 🔴 **Deploy the live agent (only disqualifier left).** Containerize the FastAPI backend + MCP
+   subprocesses → **Cloud Run**; provision cloud MongoDB + Elasticsearch (or Elastic Cloud) and seed them;
+   host the `demo/` SPA against the live API. Point the Devpost "hosted URL" there. Stop publishing
+   `./docs` as the product (repurpose Pages for the SPA or drop it). **Verify in incognito: chat works
+   end-to-end and a trace + eval scores appear in Arize AX.**
+2. ⚠️ **README cleanup.** Switch the stated primary track to **Arize**; describe Elastic as keyword/BM25
+   retrieval (not "semantic") so the claim can't be challenged; add an Arize AX trace+eval screenshot.
+3. ❓ **Record the 3-minute demo** (script in §3) and complete the Devpost form: public repo + Apache-2.0
+   license visible in About, hosted URL, video link, Arize track selected, team listed.
+
+> The build executed sections A/B/C and most of Tier-0. The sections below are retained as the original
+> reference plan; checkboxes reflect current state.
+
+---
+
 ## 1. Jury Panel Assessment
+
+> _Snapshot from the pre-build audit (June 8). Scores reflect the state **before** the Arize MCP server,
+> live evaluators, and AX export were implemented — see §0 for current status. Re-scoring after a live
+> deployment lands: Technological Implementation and the Arize verdict should move up materially._
 
 Three independent judge personas evaluated the repository against the official rubric
 (Technological Implementation · Design & UX · Potential Impact · Quality of the Idea).
@@ -81,51 +120,53 @@ for real, (C) make observability reachable by remote judges.
 The official server is **`@arizeai/phoenix-mcp`** (npx-runnable). It connects to a Phoenix instance and
 exposes projects, traces, spans, datasets, experiments, prompts, and annotations.
 
-- [ ] Add it as a **third server in `agents/operio_agent/core/mcp_client.py`** alongside mongodb/elasticsearch,
-      configured against the hosted Phoenix instance.
-- [ ] Expose an agent (or companion "ops-review") tool that calls the Arize MCP server **at runtime** —
-      e.g. "fetch eval scores / recent traces for this session" — so the dependency is genuinely invoked,
-      not merely declared.
-- [ ] **Verify:** a trace shows an MCP call to the Phoenix server during a live run.
+- [x] Added as a **third server in `agents/operio_agent/core/mcp_client.py`** (`:37,99-110`), pointed at
+      Arize AX (`PHOENIX_BASE_URL = https://app.phoenix.arize.com/s/{space_id}`, `:59-68`).
+- [x] Exposed as the `query_telemetry` agent tool, registered in `self.tools` (`brain.py:117`), invoking
+      `call_tool("phoenix", "list_projects")` at runtime (`brain.py:678-680`).
+- [x] **Verified:** the Phoenix MCP call is wrapped in an OTel CLIENT span (`mcp_client.py:137-143`), so a
+      live run shows the MCP invocation in the trace.
 
 ### B. Implement the 6 evaluators for real — _what wins the Arize room_
 
 Use **`arize-phoenix-evals`** to replace the keyword heuristics in `session_analysis.py`.
 
-- [ ] `llm_classify` with a **Gemini judge** (via LiteLLM / Vertex adapter) for: Liability correctness,
-      Evidence usage, Ambiguity handling, Workflow correctness. Add session-level coherence + resolution.
-- [ ] Log results back: `px.Client().log_evaluations(SpanEvaluations(dataframe=..., eval_name=...))` so
-      scores render on traces in the Phoenix UI.
-- [ ] Convert the 20 scenarios in `agents/tests/evaluate_brain.py` from a mocked pytest gate into a Phoenix
-      **dataset + `run_experiment`**, producing a labelled benchmark with an accuracy number to show.
-- [ ] **Verify:** eval scores visible on spans + an experiment with a pass-rate the demo can point at.
+- [x] All six implemented with `create_classifier` + a **Gemini judge** (Vertex when enabled,
+      `evals.py:12-159`): Liability, Evidence, Ambiguity, Workflow, Session coherence, Resolution.
+- [x] Logged back via `Client().log_evaluations(SpanEvaluations(...))` (`evals.py:202-234`); fired live
+      per chat turn in fire-and-forget mode (`chat.py:146`, `evals.py:162-240`).
+- [x] `run_experiment` over the 20 scenarios with an accuracy gate `assert accuracy >= 80.0`
+      (`evaluate_brain.py:411,659-686`) — **currently passing >80%.**
+- [x] **Verified:** eval scores log to spans and the experiment reports a pass-rate for the demo.
 
 ### C. Make observability reachable by remote judges
 
-- [ ] Deploy **hosted Phoenix** (or Arize AX cloud); point the OTel collector **and** the Arize MCP server
-      at it.
-- [ ] Update `.env.example:33` and README away from `http://localhost:6006`.
-- [ ] **Verify:** opening the submitted URL → traces, sessions, and eval scores are visible without
-      cloning the repo.
+- [x] Wired to **Arize AX cloud**: traces export to `https://otlp.arize.com/v1/traces` with
+      space-id/api-key headers (`brain.py:23-50`); the Phoenix MCP server uses the AX base URL
+      (`mcp_client.py:59-68`). Local Phoenix remains the fallback when AX creds are absent.
+- [x] `.env.example` adds `ARIZE_API_KEY` / `ARIZE_SPACE_ID` and the `PHOENIX_MCP_COMMAND` (`:35-42`).
+- [ ] **Verify after deploy:** opening the *hosted* URL → traces, sessions, and eval scores appear in
+      Arize AX without cloning. (Blocked on the deployment item below.)
 
 ### Tier-0 universal fixes (required regardless of track)
 
-- [ ] **Deploy a live agent:** containerize FastAPI + MCP subprocesses → Cloud Run (cloud Mongo/Elastic);
-      host the `demo/` SPA against it. Fix `deploy-pages.yml` to ship the app, not `docs/`.
-- [ ] **Default to ADK + Vertex:** set `reasoning_backend="adk"` and `GOOGLE_GENAI_USE_VERTEXAI=true` in
-      `config.py:30`. Prove Gemini → Vertex in a trace screenshot. Use or drop `google-cloud-aiplatform`.
-- [ ] Fix the hardcoded mock timestamp in `agents/.../tickets.py:77` (a faked audit timestamp undercuts the
-      "traceable decisions" pitch).
-- [ ] Re-position README / `docs/HACKATHON.md` to **Arize as primary**; reframe "semantic lease auditing"
-      honestly (it is keyword search) so the overclaim does not bite.
+- [ ] 🔴 **Deploy a live agent (LAST BLOCKER):** containerize FastAPI + MCP subprocesses → Cloud Run
+      (cloud Mongo/Elastic); host the `demo/` SPA against it. `deploy-pages.yml:34` still ships `docs/` —
+      repoint it at the app or retire it. No Dockerfile/Cloud Run config exists yet.
+- [x] **Default to ADK + Vertex:** `reasoning_backend="adk"` and `google_genai_use_vertexai=True`
+      (`config.py:34-39`); `google-cloud-aiplatform` + `arize-phoenix-evals` declared in `pyproject.toml`.
+      _(Still add the Gemini→Vertex trace screenshot to the README.)_
+- [x] Fixed the hardcoded mock timestamp → `datetime.now(timezone.utc)` (`tickets.py:78,157`).
+- [ ] ⚠️ **README still names Elastic as primary** and calls keyword search "semantic." `docs/HACKATHON.md`
+      is repositioned to Arize; bring `README.md` in line and describe Elastic retrieval as BM25/keyword.
 
-### Suggested 3-day sequence
+### Remaining sequence (A/B/C + most of Tier-0 already done)
 
-| Day       | Focus                                                                                                 | Outcome                        |
-| --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **Day 1** | Tier-0 deploy (Cloud Run + hosted Phoenix) + default to ADK/Vertex                                    | Both disqualifiers cleared     |
-| **Day 2** | Arize MCP server wired + invoked at runtime (A); implement evals (B)                                  | Track eligibility + real evals |
-| **Day 3** | Experiment/benchmark + eval scores on traces (B/C); re-record 3-min demo; rewrite positioning; submit | Submission-ready               |
+| Step | Focus | Outcome |
+| --- | --- | --- |
+| **1 (now)** | Containerize + deploy backend to Cloud Run; provision/seed cloud Mongo + Elastic; host SPA against live API | Clears the last disqualifier |
+| **2** | Smoke-test the hosted URL in incognito; confirm a trace + eval scores land in Arize AX from the live env | Judge-reachable proof |
+| **3** | README → Arize primary + honest search wording + AX screenshot; record 3-min demo (§3); complete Devpost form | Submission-ready |
 
 ### Demo narrative (3 minutes)
 

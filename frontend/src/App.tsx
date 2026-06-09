@@ -140,7 +140,18 @@ const AppContent: React.FC = () => {
               title="The Operational Ledger"
               description="Monitor queue health, landlord approvals, and field readiness from a single operations surface."
               actions={(
-                <a href="http://localhost:6006" target="_blank" rel="noreferrer" className="btn btn-secondary">
+                <a
+                  href={
+                    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                      ? 'http://localhost:6006'
+                      : /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname)
+                      ? `http://${window.location.hostname}:6006`
+                      : `${window.location.protocol}//phoenix.${window.location.hostname}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary"
+                >
                   <span className="material-symbols-outlined">monitoring</span>
                   Arize Phoenix traces
                 </a>
