@@ -11,32 +11,28 @@ tracer = trace.get_tracer("operio-agent")
 
 
 class McpClientManager:
-    """Manages lifecycle and tool execution of MongoDB and Phoenix MCP servers.
+    """Manages lifecycle and tool execution of the MongoDB MCP server.
 
-    Runs servers as stdio subprocesses and manages client sessions.
+    Runs the server as a stdio subprocess and manages the client session.
     """
 
     def __init__(
         self,
         mongo_cmd: list[str] | None = None,
-        phoenix_cmd: list[str] | None = None,
     ) -> None:
-        """Initialises McpClientManager with server launch commands.
+        """Initialises McpClientManager with server launch command.
 
         Args:
             mongo_cmd: Command and args list to start MongoDB MCP server.
-            phoenix_cmd: Command and args list to start Arize Phoenix MCP server.
         """
         from operio_agent.config import settings
 
         self.mongo_cmd: list[str] = mongo_cmd or settings.mongo_mcp_command
-        self.phoenix_cmd: list[str] = phoenix_cmd or settings.phoenix_mcp_command
         self.exit_stack: AsyncExitStack = AsyncExitStack()
         self.mongo_session: ClientSession | None = None
-        self.phoenix_session: ClientSession | None = None
 
     async def start(self) -> None:
-        """Launches all MCP servers and initialises client sessions.
+        """Launches the MongoDB MCP server and initialises the client session.
 
         Raises:
             Exception: If launching the MongoDB server subprocess fails.
@@ -45,17 +41,6 @@ class McpClientManager:
         mcp_env = os.environ.copy()
         mongo_params = StdioServerParameters(
             command=self.mongo_cmd[0], args=self.mongo_cmd[1:], env=mcp_env
-        )
-
-        from operio_agent.config import settings
-        phoenix_env = os.environ.copy()
-        if settings.arize_api_key and settings.arize_space_id:
-            phoenix_env["PHOENIX_BASE_URL"] = (
-                f"https://app.phoenix.arize.com/s/{settings.arize_space_id}"
-            )
-            phoenix_env["PHOENIX_API_KEY"] = settings.arize_api_key
-        phoenix_params = StdioServerParameters(
-            command=self.phoenix_cmd[0], args=self.phoenix_cmd[1:], env=phoenix_env
         )
 
         try:
@@ -72,22 +57,6 @@ class McpClientManager:
             print(f"[MCP Client Manager] Failed to start MongoDB MCP Server: {e}")
             raise e
 
-        try:
-            print("[MCP Client Manager] Starting Arize Phoenix MCP Server...")
-            phoenix_read_write = await self.exit_stack.enter_async_context(
-                stdio_client(phoenix_params)
-            )
-            self.phoenix_session = await self.exit_stack.enter_async_context(
-                ClientSession(phoenix_read_write[0], phoenix_read_write[1])
-            )
-            await self.phoenix_session.initialize()
-            print("[MCP Client Manager] Arize Phoenix MCP Server initialised.")
-        except Exception as e:
-            print(
-                f"[MCP Client Manager] Failed to start Arize Phoenix MCP Server "
-                f"(continuing without it): {e}"
-            )
-
     async def stop(self) -> None:
         """Cleans up and terminates all subprocesses via AsyncExitStack."""
         print("[MCP Client Manager] Terminating MCP servers and closing pipes...")
@@ -102,7 +71,7 @@ class McpClientManager:
         Wrapped in an OpenTelemetry span for tracing visibility in Arize Phoenix.
 
         Args:
-            server_name: The target MCP server (e.g. 'mongodb', 'phoenix').
+            server_name: The target MCP server (e.g. 'mongodb').
             tool_name: The name of the tool to execute.
             arguments: Dict of parameters expected by the tool.
 
@@ -124,8 +93,6 @@ class McpClientManager:
             try:
                 if server_name == "mongodb":
                     session = self.mongo_session
-                elif server_name == "phoenix":
-                    session = self.phoenix_session
                 else:
                     raise ValueError(f"Unknown MCP server name: {server_name}")
 

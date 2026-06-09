@@ -1,13 +1,40 @@
 """FastAPI route dependency injections."""
 
-import time
-from collections import defaultdict
-from fastapi import Request, HTTPException, status
+from fastapi import Request
 from pymongo.database import Database
+from slowapi import Limiter
 
-from operio_agent.config import settings
 from operio_agent.core.brain import OperioBrain
 from operio_agent.core.mcp_client import McpClientManager
+
+# X-Forwarded-For is set by Cloud Run / Caddy.
+# The real client IP is the first (leftmost) entry in that header;
+# fall back to request.client.host when the header is absent (local dev).
+_FORWARDED_FOR_HEADER = "X-Forwarded-For"
+
+
+def client_ip_key(request: Request) -> str:
+    """Returns the real client IP for rate-limit bucketing.
+
+    Behind Cloud Run the proxy appends the originating IP as the first entry
+    of the X-Forwarded-For header.  We read that value rather than
+    request.client.host, which would be the proxy's address.
+
+    Args:
+        request: The active FastAPI HTTP request.
+
+    Returns:
+        str: The originating client IP address.
+    """
+    forwarded_for = request.headers.get(_FORWARDED_FOR_HEADER, "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
+
+
+# Module-level limiter wired to the client_ip_key function.
+# app.state.limiter and SlowAPIMiddleware are registered in main.py.
+limiter = Limiter(key_func=client_ip_key)
 
 
 def get_db(request: Request) -> Database:
@@ -44,38 +71,3 @@ def get_brain(request: Request) -> OperioBrain:
         OperioBrain: The Operio reasoning brain.
     """
     return request.app.state.brain
-
-
-class InMemoryRateLimiter:
-    """Sliding-window IP-based rate limiter to prevent API abuse."""
-
-    def __init__(self, requests_limit: int, window_seconds: int):
-        self.requests_limit = requests_limit
-        self.window_seconds = window_seconds
-        self.history: dict[str, list[float]] = defaultdict(list)
-
-    def __call__(self, request: Request) -> None:
-        client_ip = request.client.host if request.client else "127.0.0.1"
-        now = time.time()
-
-        # Clean history for this IP
-        self.history[client_ip] = [
-            t for t in self.history[client_ip]
-            if now - t < self.window_seconds
-        ]
-
-        if len(self.history[client_ip]) >= self.requests_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Please wait before sending another message."
-            )
-
-        self.history[client_ip].append(now)
-
-
-# Global rate limiter dependency initialized from application settings
-chat_rate_limiter = InMemoryRateLimiter(
-    requests_limit=settings.chat_rate_limit_requests,
-    window_seconds=settings.chat_rate_limit_window,
-)
-

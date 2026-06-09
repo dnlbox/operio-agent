@@ -47,19 +47,15 @@ class Settings(BaseSettings):
         default=["npx", "tsx", "mcp_servers/mongodb-server.ts"],
         alias="MONGO_MCP_COMMAND",
     )
-    phoenix_mcp_command: List[str] = Field(
-        default=["npx", "-y", "@arizeai/phoenix-mcp"],
-        alias="PHOENIX_MCP_COMMAND",
-    )
 
     landlord_autonomous_limit: float = Field(
         default=150.0, alias="LANDLORD_AUTONOMOUS_LIMIT"
     )
-    chat_rate_limit_requests: int = Field(
-        default=5, alias="CHAT_RATE_LIMIT_REQUESTS"
+    chat_rate_limit_per_minute: str = Field(
+        default="15/minute", alias="CHAT_RATE_LIMIT_PER_MINUTE"
     )
-    chat_rate_limit_window: int = Field(
-        default=60, alias="CHAT_RATE_LIMIT_WINDOW"
+    chat_rate_limit_per_day: str = Field(
+        default="200/day", alias="CHAT_RATE_LIMIT_PER_DAY"
     )
 
 

@@ -11,7 +11,12 @@ def create_mongo_client() -> MongoClient:
     Returns:
         MongoClient: The configured MongoDB client.
     """
-    return MongoClient(settings.mongo_uri)
+    return MongoClient(
+        settings.mongo_uri,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=20000,
+    )
 
 
 def get_mongo_db(client: MongoClient) -> Database:

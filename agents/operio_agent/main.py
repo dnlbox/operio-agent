@@ -5,7 +5,11 @@ from typing import Any, AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
+from operio_agent.api.deps import limiter
 from operio_agent.api.routes import chat, docs, staff, tickets
 from operio_agent.config import settings
 from operio_agent.core.brain import OperioBrain
@@ -65,6 +69,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# --- Rate limiting (slowapi) ---
+# limiter is defined in api/deps.py; key_func returns the real client IP
+# by reading X-Forwarded-For (Cloud Run / Caddy) with fallback to host.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -90,12 +101,20 @@ def health_check() -> dict[str, Any]:
     """
     db = app.state.db
 
+    mongo_ok = False
+    mongo_error: str | None = None
+    try:
+        mongo_ok = db.command("ping")["ok"] == 1.0
+    except Exception as exc:  # surface connectivity failures instead of crashing
+        mongo_error = f"{type(exc).__name__}: {exc}"
+
     return {
-        "status": "ok",
+        "status": "ok" if mongo_ok else "degraded",
         "service": "operio-agent-orchestrator",
         "databases": {
-            "mongodb": db.command("ping")["ok"] == 1.0,
+            "mongodb": mongo_ok,
         },
+        "mongo_error": mongo_error,
     }
 
 

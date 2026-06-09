@@ -5,7 +5,7 @@ import json
 import os
 import sys
 from contextlib import nullcontext
-from typing import Any, Dict, List
+from typing import Any
 from google.adk.agents import Agent
 from google.adk.events import Event
 from google.adk.runners import InMemoryRunner, RunConfig
@@ -114,7 +114,6 @@ class OperioBrain:
             self.create_work_order,
             self.update_work_order_status,
             self.check_active_work_orders,
-            self.query_telemetry,
         ]
 
         self.client: genai.Client | None = None
@@ -664,20 +663,4 @@ class OperioBrain:
 
         return {"response_text": final_text, "timeline": decisions_timeline}
 
-    async def query_telemetry(self, query: str = "") -> str:
-        """Query recent trace telemetry, evaluations, and datasets from the Phoenix server.
-
-        Args:
-            query: The name of the project or dataset, or filter to query.
-
-        Returns:
-            str: JSON string containing the telemetry details or list of traces.
-        """
-        print(f"[Tool: query_telemetry] Querying Arize Phoenix for '{query}'...")
-        try:
-            return await self.mcp_manager.call_tool(
-                "phoenix", "list_projects", {}
-            )
-        except Exception as e:
-            return json.dumps({"error": f"Failed to call Phoenix MCP server: {str(e)}"})
 

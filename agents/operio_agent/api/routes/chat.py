@@ -3,13 +3,14 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Tuple
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from opentelemetry import trace
 from pymongo.database import Database
 from phoenix.otel import SpanAttributes, using_session
 
-from operio_agent.api.deps import get_brain, get_db, chat_rate_limiter
+from operio_agent.api.deps import get_brain, get_db, limiter
 from operio_agent.api.schemas.chat import ChatRequest
+from operio_agent.config import settings
 from operio_agent.core.session_analysis import build_turn_record
 from operio_agent.core.brain import (
     OperioBrain,
@@ -18,6 +19,11 @@ from operio_agent.core.brain import (
     active_tenant_id,
     active_weather_emergency,
 )
+
+# NOTE: When a POST /api/docs/upload endpoint is added it should carry a
+# stricter per-IP limit, e.g.:
+#   @limiter.limit("5/hour")
+# to guard against Vertex AI document-processing costs.
 
 router = APIRouter()
 tracer = trace.get_tracer("operio_agent.chat")
@@ -45,11 +51,13 @@ def get_tenant_lease_context(db: Database, tenant_id: str) -> Tuple[str, str]:
 
 
 @router.post("/chat")
+@limiter.limit(lambda: settings.chat_rate_limit_per_day)
+@limiter.limit(lambda: settings.chat_rate_limit_per_minute)
 async def chat_endpoint(
+    request: Request,
     req: ChatRequest,
     db: Database = Depends(get_db),
     brain: OperioBrain = Depends(get_brain),
-    _: None = Depends(chat_rate_limiter),
 ) -> dict[str, Any]:
     """Handles chat messages, runs reasoning loop, and updates session history.
 
