@@ -90,8 +90,8 @@ EOF
 gcloud compute scp docker-compose.prod.yaml Caddyfile .env.prod "$VM_NAME":~/ --zone="$ZONE"
 gcloud compute scp Dockerfile package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json "$VM_NAME":~/ --zone="$ZONE"
 
-# Copy directories by tarring them first for efficiency
-tar -czf app_src.tar.gz mcp_servers agents frontend scripts docs
+# Copy directories by tarring them first for efficiency (excluding node_modules and caches)
+tar --exclude="node_modules" --exclude="__pycache__" --exclude=".venv" --exclude=".git" --exclude=".pytest_cache" --exclude="dist" -czf app_src.tar.gz mcp_servers agents frontend scripts docs
 gcloud compute scp app_src.tar.gz "$VM_NAME":~/ --zone="$ZONE"
 rm app_src.tar.gz
 rm .env.prod

@@ -47,12 +47,13 @@ class McpClientManager:
             Exception: If launching any server subprocess fails.
         """
         import os
+        mcp_env = os.environ.copy()
         mongo_params = StdioServerParameters(
-            command=self.mongo_cmd[0], args=self.mongo_cmd[1:], env=None
+            command=self.mongo_cmd[0], args=self.mongo_cmd[1:], env=mcp_env
         )
 
         elastic_params = StdioServerParameters(
-            command=self.elastic_cmd[0], args=self.elastic_cmd[1:], env=None
+            command=self.elastic_cmd[0], args=self.elastic_cmd[1:], env=mcp_env
         )
 
         from operio_agent.config import settings
