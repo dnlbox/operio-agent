@@ -108,6 +108,9 @@ async def chat_endpoint(
 
     # 3. Run the Agent Loop
     span_id = None
+    expected_resp = "Unknown"
+    is_ambiguous_str = "no"
+    expected_evidence_str = "none"
     try:
         with using_session(session_id):
             with tracer.start_as_current_span(
@@ -135,6 +138,31 @@ async def chat_endpoint(
                 turn_span.set_attribute(
                     "operio.turn.tags", ",".join(turn_record["tags"])
                 )
+
+                # Derive and log evaluation targets as span attributes for Arize AX mapping
+                if "Tenant" in result["response_text"]:
+                    expected_resp = "Tenant"
+                elif "Landlord" in result["response_text"]:
+                    expected_resp = "Landlord"
+                else:
+                    expected_resp = "Unknown"
+
+                is_ambiguous_str = (
+                    "yes" if "ambiguous_liability" in turn_record["tags"] else "no"
+                )
+
+                if "lease_reasoning" in turn_record["tags"]:
+                    expected_evidence_str = "lease clause"
+                elif "manual_diagnostics" in turn_record["tags"]:
+                    expected_evidence_str = "manual section"
+                else:
+                    expected_evidence_str = "none"
+
+                turn_span.set_attribute("operio.expected_responsibility", expected_resp)
+                turn_span.set_attribute("operio.expected_evidence", expected_evidence_str)
+                turn_span.set_attribute("operio.is_ambiguous", is_ambiguous_str)
+                turn_span.set_attribute("operio.expected_workflow", turn_record["resolution"])
+
                 span_context = turn_span.get_span_context()
                 if span_context.is_valid:
                     span_id = format(span_context.span_id, "016x")
@@ -145,23 +173,6 @@ async def chat_endpoint(
     # Trigger evaluations in the background if tracing was successful
     if span_id:
         from operio_agent.evals.live_trace import run_live_eval_and_log
-
-        is_ambiguous_str = (
-            "yes" if "ambiguous_liability" in turn_record["tags"] else "no"
-        )
-        if "Tenant" in result["response_text"]:
-            expected_resp = "Tenant"
-        elif "Landlord" in result["response_text"]:
-            expected_resp = "Landlord"
-        else:
-            expected_resp = "Unknown"
-
-        if "lease_reasoning" in turn_record["tags"]:
-            expected_evidence_str = "lease clause"
-        elif "manual_diagnostics" in turn_record["tags"]:
-            expected_evidence_str = "manual section"
-        else:
-            expected_evidence_str = "none"
 
         history_messages = messages[:-1]
         history_summary = (
