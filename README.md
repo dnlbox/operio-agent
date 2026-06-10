@@ -28,7 +28,7 @@ Why this track fits:
 - **Trace-Level Observability**: Full execution traces (AGENT -> TOOL -> MCP) are streamed directly to Arize Phoenix.
 - **LLM-as-a-Judge Evaluators**: Incorporates 6 custom evaluators (Liability correctness, Evidence usage, Ambiguity handling, Workflow correctness, Session coherence, Resolution quality) that analyze each chat turn and log scores directly to Phoenix traces.
 - **Phoenix MCP Server Integration**: Instantiates and communicates with `@arizeai/phoenix-mcp` at runtime, exposing telemetry, datasets, and experiments directly to the agent.
-- **Continuous Benchmarking**: The evaluation harness converts the 20 test scenarios into a Phoenix dataset and runs a validation experiment to verify agent reasoning performance.
+- **Continuous Benchmarking**: The scenario benchmark can be run locally or published into Arize AX as a reusable dataset + experiment baseline.
 
 ## Repository Guide
 
@@ -36,6 +36,7 @@ Why this track fits:
 - [Technical Architecture & Data Schemas](docs/ARCHITECTURE.md)
 - [Hackathon Track & Submission Brief](docs/HACKATHON.md)
 - [Arize Phoenix Evaluation Plan](docs/ARIZE_EVALS.md)
+- [Arize AX Baseline Flow](docs/ARIZE_AX_MIGRATION.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Privacy Policy](PRIVACY.md)
 
@@ -112,7 +113,37 @@ Open:
 - App: [http://localhost:3001](http://localhost:3001)
 - Phoenix traces: [http://localhost:6006](http://localhost:6006)
 
-### 6. Optional frontend-only dev server
+### 6. Run the scenario evaluation flow
+
+The repo now has a single orchestration command for the scenario baseline:
+
+```bash
+pnpm run eval:flow
+```
+
+Useful variants:
+
+```bash
+pnpm run eval:flow -- --no-seed --limit 1
+pnpm run eval:flow -- --publish --space operio
+pnpm run eval:flow -- --publish --space operio --scenario-ids 1,9,10
+```
+
+What it does:
+
+- optionally reseeds MongoDB
+- runs the local scenario benchmark
+- exports the AX dataset artifact
+- optionally publishes the dataset and experiment baseline to Arize AX
+
+Generated artifacts land under `agents/demo/`:
+
+- `operio_ax_baseline_results.json`
+- `operio_ax_eval_dataset.csv`
+- `operio_ax_experiment_runs.json`
+- `operio_ax_run_annotations.json`
+
+### 7. Optional frontend-only dev server
 
 ```bash
 pnpm run frontend:dev
@@ -136,7 +167,8 @@ Good scenarios for a judge or reviewer:
 - `pnpm run frontend:review` - run alias, JSDoc, and loop-discipline checks
 - `pnpm run frontend:test` - run frontend tests
 - `pnpm run test` - run MCP tests, frontend tests, and backend pytest suites
-- `pnpm run evaluate` - run the evaluation harness
+- `pnpm run evaluate` - run the scenario benchmark pytest gate
+- `pnpm run eval:flow` - run the local scenario baseline and optionally publish it to Arize AX
 - `pnpm run seed` - reseed MongoDB with demo data and generate search embeddings
 
 ## License

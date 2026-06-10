@@ -46,6 +46,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
   // 3. Compute KPI Metrics
   const metrics = buildDashboardMetrics(tickets, staff);
   const spotlight = buildQueueSpotlight(tickets, staff);
+  const busiestSectorLabel = metrics.busiestSector ?? 'Coverage balanced';
+  const activeStaffCount = staff.filter((person) => person.status !== 'Offline').length;
+  const busyStaffCount = staff.filter((person) => person.status === 'Busy').length;
+  const heroTitle = metrics.pendingApprovals > 0
+    ? 'Human approval is the only active choke point.'
+    : metrics.activeTickets > 0
+      ? 'The queue is moving with clean operational coverage.'
+      : 'Operations are calm, staffed, and ready for new intake.';
+  const heroCopy = metrics.activeTickets > 0
+    ? `${metrics.activeTickets} live incident${metrics.activeTickets === 1 ? '' : 's'} are open across the mall. ${metrics.availableStaff} technician${metrics.availableStaff === 1 ? '' : 's'} are immediately available, with ${busiestSectorLabel.toLowerCase()} carrying the densest field presence.`
+    : 'No incident currently needs escalation. The command center can stay focused on readiness, traceability, and keeping approvals out of the path unless cost or liability require it.';
 
   // 4. Apply filter chips
   const filteredTickets = tickets.filter(ticket => {
@@ -55,94 +66,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
     // default 'all' filter shows open/active tickets
     return ticket.status !== 'Completed' && ticket.status !== 'Rejected';
   });
+  const queueSummary = activeFilter === 'all'
+    ? `${filteredTickets.length} active item${filteredTickets.length === 1 ? '' : 's'} in the live queue`
+    : `${filteredTickets.length} item${filteredTickets.length === 1 ? '' : 's'} in this lane`;
 
   return (
     <div className="dashboard-content">
-      {/* KPI Grid */}
-      <section className="metrics-grid">
-        <div className="metric-card">
-            <div className="metric-header">
-              <div className="metric-label-group">
-                <span className="metric-icon material-symbols-outlined">receipt_long</span>
-                <span className="label-sm uppercase muted">Total Work Orders</span>
-              </div>
-              <span className="trend-badge positive">Live</span>
+      <section className="command-deck">
+        <article className="panel command-hero">
+          <div className="command-hero-top">
+            <div className="command-hero-copy-block">
+              <span className="label-md uppercase tracking text-accent">Operations pulse</span>
+              <h2 className="command-hero-title">{heroTitle}</h2>
+              <p className="command-hero-copy">{heroCopy}</p>
             </div>
-          <span className="metric-value" id="kpi-total-orders">{metrics.totalTickets}</span>
-          <div className="metric-progress bg-primary"></div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-label-group">
-              <span className="metric-icon material-symbols-outlined">approval_delegation</span>
-              <span className="label-sm uppercase muted">Pending Approval (HITL)</span>
+            <div className="command-hero-signal">
+              <span className={`status-pill ${metrics.pendingApprovals > 0 ? 'warning' : 'success'}`}>
+                {metrics.pendingApprovals > 0 ? `${metrics.pendingApprovals} pending approval` : 'Flow is clear'}
+              </span>
+              <span className="command-hero-signal-note">
+                {spotlight
+                  ? `${tenantNameMap[spotlight.ticket.tenantId] || spotlight.ticket.tenantId} is the current priority signal.`
+                  : 'No incident currently requires spotlight routing.'}
+              </span>
             </div>
-            <span className={`trend-badge warning ${metrics.pendingApprovals > 0 ? 'blink' : ''}`} id="kpi-pending-badge">
-              {metrics.pendingApprovals} Pending
-            </span>
-          </div>
-          <span className="metric-value text-warning" id="kpi-pending-orders">{metrics.pendingApprovals}</span>
-          <div className="metric-progress bg-warning"></div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-label-group">
-              <span className="metric-icon material-symbols-outlined">local_shipping</span>
-              <span className="label-sm uppercase muted">Straight-Through Routing</span>
-            </div>
-            <span className="trend-badge positive">{metrics.straightThroughRate}% Routed</span>
-          </div>
-          <span className="metric-value text-success" id="kpi-dispatched-orders">{metrics.dispatchedTickets}</span>
-          <div className="metric-progress bg-success"></div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-label-group">
-              <span className="metric-icon material-symbols-outlined">engineering</span>
-              <span className="label-sm uppercase muted">Field Readiness</span>
-            </div>
-            <span className="trend-badge positive">{metrics.availableStaff} Available</span>
-          </div>
-          <span className="metric-value" id="kpi-field-readiness">{metrics.fieldReadinessPct}%</span>
-          <div className="metric-progress bg-primary"></div>
-        </div>
-      </section>
-
-      <section className="dashboard-brief-grid">
-        <article className="panel dashboard-brief-card">
-          <div className="panel-header panel-header-spaced">
-            <div>
-              <h2 className="panel-title">
-                <span className="material-symbols-outlined">overview</span>
-                Autonomy brief
-              </h2>
-              <p className="panel-copy">
-                Operio is strongest when it converts fragmented mall operations into a single queue with visible liability, staffing, and approval risk.
-              </p>
-            </div>
-            <span className="status-pill neutral">
-              {metrics.busiestSector ? `${metrics.busiestSector} busiest` : 'Live telemetry'}
-            </span>
           </div>
 
-          <div className="brief-stat-grid">
-            <div className="brief-stat-card">
-              <span className="brief-stat-label">Open incidents</span>
+          <div className="command-summary-strip">
+            <div className="command-summary-item">
+              <span className="brief-stat-label">Open queue</span>
               <strong>{metrics.activeTickets}</strong>
+              <p>{metrics.totalTickets} total work orders ingested.</p>
             </div>
-            <div className="brief-stat-card">
+            <div className="command-summary-item">
               <span className="brief-stat-label">Approval exposure</span>
               <strong>${metrics.blockedSpend}</strong>
+              <p>Only landlord liability and cost should trigger review.</p>
             </div>
-            <div className="brief-stat-card">
-              <span className="brief-stat-label">Routing without manager touch</span>
-              <strong>{metrics.straightThroughRate}%</strong>
+            <div className="command-summary-item">
+              <span className="brief-stat-label">Busiest field zone</span>
+              <strong>{busiestSectorLabel}</strong>
+              <p>{activeStaffCount} technician{activeStaffCount === 1 ? '' : 's'} on shift right now.</p>
             </div>
           </div>
-
-          <p className="dashboard-brief-note">
-            The strongest live proof path is still: tenant conversation, lease/manual retrieval, MCP trace, then approval gating only when landlord liability and cost justify human review.
-          </p>
         </article>
 
         <article className="panel dashboard-spotlight-card">
@@ -150,10 +116,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
             <div>
               <h2 className="panel-title">
                 <span className="material-symbols-outlined">target</span>
-                Queue spotlight
+                Priority spotlight
               </h2>
               <p className="panel-copy">
-                Surface the incident that best shows where automation, guardrails, and field operations converge.
+                Surface the one incident that best shows where automation, guardrails, and field execution converge.
               </p>
             </div>
             {spotlight ? (
@@ -204,43 +170,93 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
         </article>
       </section>
 
-      {/* Dashboard Workspace */}
-      <div className="workspace-grid">
-        {/* Queue Panel */}
-        <section className="panel main-panel">
-          <div className="panel-header">
-            <h2 className="panel-title">
-              <span className="material-symbols-outlined">fact_check</span>
-              Operational Queue
-            </h2>
-            <div className="filter-actions">
-              <button 
-                className={`chip ${activeFilter === 'all' ? 'active-filter' : ''}`} 
+      <section className="metrics-grid command-metrics-grid">
+        <div className="metric-card metric-card-compact">
+          <div className="metric-header">
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">receipt_long</span>
+              <span className="label-sm uppercase muted">Total Work Orders</span>
+            </div>
+            <span className="trend-badge positive">Live</span>
+          </div>
+          <span className="metric-value" id="kpi-total-orders">{metrics.totalTickets}</span>
+          <p className="metric-caption">All requests currently flowing through the command surface.</p>
+        </div>
+        <div className="metric-card metric-card-compact">
+          <div className="metric-header">
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">approval_delegation</span>
+              <span className="label-sm uppercase muted">Pending Approval</span>
+            </div>
+            <span className={`trend-badge warning ${metrics.pendingApprovals > 0 ? 'blink' : ''}`} id="kpi-pending-badge">
+              HITL
+            </span>
+          </div>
+          <span className="metric-value text-warning" id="kpi-pending-orders">{metrics.pendingApprovals}</span>
+          <p className="metric-caption">Items waiting for human liability or spend review.</p>
+        </div>
+        <div className="metric-card metric-card-compact">
+          <div className="metric-header">
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">local_shipping</span>
+              <span className="label-sm uppercase muted">Straight-Through Routing</span>
+            </div>
+            <span className="trend-badge positive">{metrics.straightThroughRate}%</span>
+          </div>
+          <span className="metric-value text-success" id="kpi-dispatched-orders">{metrics.dispatchedTickets}</span>
+          <p className="metric-caption">Incidents already advanced without manual gating.</p>
+        </div>
+        <div className="metric-card metric-card-compact">
+          <div className="metric-header">
+            <div className="metric-label-group">
+              <span className="metric-icon material-symbols-outlined">engineering</span>
+              <span className="label-sm uppercase muted">Field Readiness</span>
+            </div>
+            <span className="trend-badge positive">{metrics.availableStaff} available</span>
+          </div>
+          <span className="metric-value" id="kpi-field-readiness">{metrics.fieldReadinessPct}%</span>
+          <p className="metric-caption">Share of on-site staff ready for immediate assignment.</p>
+        </div>
+      </section>
+
+      <div className="workspace-grid command-workspace">
+        <section className="panel main-panel queue-panel">
+          <div className="panel-header panel-header-stack">
+            <div>
+              <h2 className="panel-title">
+                <span className="material-symbols-outlined">fact_check</span>
+                Operational Queue
+              </h2>
+              <p className="panel-copy">{queueSummary}</p>
+            </div>
+            <div className="filter-actions filter-actions-segmented">
+              <button
+                className={`chip ${activeFilter === 'all' ? 'active-filter' : ''}`}
                 id="filter-all"
                 onClick={() => setActiveFilter('all')}
               >
                 Active Queue
               </button>
-              <button 
-                className={`chip ${activeFilter === 'pending' ? 'active-filter' : ''}`} 
+              <button
+                className={`chip ${activeFilter === 'pending' ? 'active-filter' : ''}`}
                 id="filter-pending"
                 onClick={() => setActiveFilter('pending')}
               >
                 Pending Approval
               </button>
-              <button 
-                className={`chip ${activeFilter === 'dispatched' ? 'active-filter' : ''}`} 
+              <button
+                className={`chip ${activeFilter === 'dispatched' ? 'active-filter' : ''}`}
                 id="filter-dispatched"
                 onClick={() => setActiveFilter('dispatched')}
               >
                 Dispatched
               </button>
-              <button 
-                className={`chip ${activeFilter === 'completed' ? 'active-filter' : ''}`} 
+              <button
+                className={`chip ${activeFilter === 'completed' ? 'active-filter' : ''}`}
                 id="filter-completed"
                 onClick={() => setActiveFilter('completed')}
               >
-                Closed & Completed
+                Closed
               </button>
             </div>
           </div>
@@ -260,21 +276,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
                 const tenantName = tenantNameMap[ticket.tenantId] || ticket.tenantId;
 
                 return (
-                  <div key={ticket._id} className="ticket-row card">
+                  <div key={ticket._id} className="ticket-row queue-ticket-row">
                     <div className="ticket-info">
                       <span className="ticket-id font-mono">
                         {ticket._id.substring(0, 8).toUpperCase()}
                       </span>
                       <span className="ticket-title">{ticket.description}</span>
                       <span className="ticket-subtext muted">
-                        {tenantName} · {ticket.assetId} · Estimated Cost: ${ticket.costEstimation}
+                        {tenantName} · {ticket.assetId} · {ticket.emergencyLevel} · {ticket.leaseResponsibility}
                       </span>
+                    </div>
+                    <div className="ticket-secondary">
+                      <span className="ticket-estimate">${ticket.costEstimation}</span>
+                      <span className="ticket-estimate-label">Estimated cost</span>
                     </div>
                     <div className="ticket-meta">
                       <span className={`chip ${statusClass}`}>{ticket.status}</span>
                       {isPending && (
-                        <button 
-                          className="btn btn-secondary btn-xs btn-action-hitl" 
+                        <button
+                          className="btn btn-secondary btn-xs btn-action-hitl"
                           onClick={() => onReviewTicket(ticket)}
                         >
                           Review Approval
@@ -288,54 +308,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReviewTicket }) => {
           </div>
         </section>
 
-        {/* Active Technicians Side Panel */}
-        <aside className="panel side-panel">
-          <div className="panel-header">
-            <h2 className="panel-title">
-              <span className="material-symbols-outlined">groups</span>
-              Staff Status
-            </h2>
-          </div>
-          <div className="staff-list" id="dashboard-staff-list">
-            {staffError ? (
-              <div className="empty-state text-danger">Failed to retrieve staff status.</div>
-            ) : staff.length === 0 ? (
-              <div className="empty-state">No staff on-site.</div>
-            ) : (
-              staff.map(person => {
-                const assignedWOs = tickets.filter(
-                  t => t.assignedTo === person._id && t.status === 'Dispatched'
-                ).length;
+        <aside className="dashboard-right-rail">
+          <section className="panel staff-summary-panel">
+            <div className="panel-header panel-header-spaced">
+              <div>
+                <h2 className="panel-title">
+                  <span className="material-symbols-outlined">groups</span>
+                  Staff Status
+                </h2>
+                <p className="panel-copy">
+                  Keep assignment clarity high and idle capacity visible before queue pressure increases.
+                </p>
+              </div>
+              <span className="status-pill neutral">{metrics.availableStaff} ready</span>
+            </div>
 
-                return (
-                  <div key={person._id} className="staff-card card">
-                    <div className="staff-header">
-                      <span className="staff-name">{person.name}</span>
-                      <span className={`staff-status-dot ${person.status === 'Available' ? 'online' : person.status === 'Busy' ? 'warning' : 'offline'}`} />
-                    </div>
-                    <div className="staff-details body-sm">
-                      <div>
-                        Skills: <span className="text-accent">{person.skills.join(', ')}</span>
+            <div className="staff-rollup-grid">
+              <div className="brief-stat-card">
+                <span className="brief-stat-label">Available</span>
+                <strong>{metrics.availableStaff}</strong>
+                <p>Ready for immediate dispatch.</p>
+              </div>
+              <div className="brief-stat-card">
+                <span className="brief-stat-label">Busy</span>
+                <strong>{busyStaffCount}</strong>
+                <p>Already assigned in the field.</p>
+              </div>
+            </div>
+
+            <div className="staff-list" id="dashboard-staff-list">
+              {staffError ? (
+                <div className="empty-state text-danger">Failed to retrieve staff status.</div>
+              ) : staff.length === 0 ? (
+                <div className="empty-state">No staff on-site.</div>
+              ) : (
+                staff.map(person => {
+                  const assignedWOs = tickets.filter(
+                    t => t.assignedTo === person._id && t.status === 'Dispatched'
+                  ).length;
+
+                  return (
+                    <div key={person._id} className="staff-card">
+                      <div className="staff-header">
+                        <div>
+                          <span className="staff-name">{person.name}</span>
+                          <span className="staff-subtitle">{person.currentLocation}</span>
+                        </div>
+                        <span className={`staff-status-dot ${person.status === 'Available' ? 'online' : person.status === 'Busy' ? 'warning' : 'offline'}`} />
                       </div>
-                      <div>
-                        Sector: <span className="text-accent">{person.currentLocation}</span>
+                      <div className="staff-details body-sm">
+                        <div>
+                          Skills <span className="text-accent">{person.skills.join(', ')}</span>
+                        </div>
+                        <div>
+                          Shift {person.shiftStart} - {person.shiftEnd}
+                        </div>
+                        <div>
+                          Rate ${person.ratePerHour}/hr
+                        </div>
                       </div>
-                      <div>
-                        Shift: {person.shiftStart} - {person.shiftEnd} (${person.ratePerHour}/hr)
+                      <div className="staff-footer">
+                        {assignedWOs > 0 ? (
+                          <span className="staff-workload text-warning">{assignedWOs} active task(s)</span>
+                        ) : (
+                          <span className="staff-workload text-success">Idle</span>
+                        )}
                       </div>
                     </div>
-                    <div className="staff-footer">
-                      {assignedWOs > 0 ? (
-                        <span className="staff-workload text-warning">{assignedWOs} active task(s)</span>
-                      ) : (
-                        <span className="staff-workload text-success">Idle</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </aside>
       </div>
     </div>

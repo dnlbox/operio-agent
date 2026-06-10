@@ -144,13 +144,34 @@ async def chat_endpoint(
 
     # Trigger evaluations in the background if tracing was successful
     if span_id:
-        from operio_agent.core.evals import run_live_eval_and_log
-        is_ambiguous_str = "yes" if "ambiguous_liability" in turn_record["tags"] else "no"
-        expected_resp = "Tenant" if "Tenant" in result["response_text"] else ("Landlord" if "Landlord" in result["response_text"] else "Unknown")
-        expected_evidence_str = "lease clause" if "lease_reasoning" in turn_record["tags"] else ("manual section" if "manual_diagnostics" in turn_record["tags"] else "none")
-        
-        hist_msgs = messages[:-1] # exclude current response
-        history_summary = "\n".join([f"{m['role']}: {m['content']}" for m in hist_msgs[-4:]]) if hist_msgs else "None"
+        from operio_agent.evals.live_trace import run_live_eval_and_log
+
+        is_ambiguous_str = (
+            "yes" if "ambiguous_liability" in turn_record["tags"] else "no"
+        )
+        if "Tenant" in result["response_text"]:
+            expected_resp = "Tenant"
+        elif "Landlord" in result["response_text"]:
+            expected_resp = "Landlord"
+        else:
+            expected_resp = "Unknown"
+
+        if "lease_reasoning" in turn_record["tags"]:
+            expected_evidence_str = "lease clause"
+        elif "manual_diagnostics" in turn_record["tags"]:
+            expected_evidence_str = "manual section"
+        else:
+            expected_evidence_str = "none"
+
+        history_messages = messages[:-1]
+        history_summary = (
+            "\n".join(
+                f"{message['role']}: {message['content']}"
+                for message in history_messages[-4:]
+            )
+            if history_messages
+            else "None"
+        )
 
         run_live_eval_and_log(
             span_id=span_id,

@@ -79,10 +79,15 @@ const MANUALS_VECTOR_INDEX = {
   }
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Generates text embeddings using the Gemini API gemini-embedding-2 model.
  */
 async function getEmbedding(text: string): Promise<number[]> {
+  // Wait to avoid rate limits
+  await sleep(400);
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY environment variable is not set.');
@@ -418,7 +423,7 @@ async function seed() {
     ];
 
     console.log('Seeding "leases" collection...');
-    await db.collection('leases').drop().catch(() => { /* collection may not exist yet */ });
+    await db.collection('leases').deleteMany({}).catch(() => { /* collection may not exist yet */ });
     const leaseDocs: any[] = [];
     for (const { leaseId, titlePrefix, pdfUrl, file } of leaseFiles) {
       const sections = parseMarkdownSections(file);
@@ -436,7 +441,7 @@ async function seed() {
     console.log(`  Inserted ${leaseDocs.length} lease sections.`);
 
     console.log('Seeding "manuals" collection...');
-    await db.collection('manuals').drop().catch(() => { /* collection may not exist yet */ });
+    await db.collection('manuals').deleteMany({}).catch(() => { /* collection may not exist yet */ });
     const manualDocs: any[] = [];
     for (const { equipmentModel, titlePrefix, pdfUrl, file } of manualFiles) {
       const sections = parseMarkdownSections(file);
@@ -460,7 +465,6 @@ async function seed() {
     await ensureSearchIndex(db, 'leases', LEASES_SEARCH_INDEX);
     await ensureSearchIndex(db, 'manuals', MANUALS_SEARCH_INDEX);
     await ensureSearchIndex(db, 'leases', LEASES_VECTOR_INDEX);
-    await ensureSearchIndex(db, 'manuals', MANUALS_VECTOR_INDEX);
 
     console.log('MongoDB Seeding Completed successfully.');
   } catch (error) {
