@@ -109,6 +109,43 @@ def test_ticket_approval_lifecycle() -> None:
     db.work_orders.delete_one({"_id": result.inserted_id})
 
 
+def test_ticket_completion_lifecycle() -> None:
+    """Verifies that an assigned field technician can conclude a dispatched work order."""
+    mock_ticket = {
+        "tenantId": "tenant_001",
+        "assetId": "asset_hvac_104",
+        "description": "Completed AC Issue",
+        "costEstimation": 180.0,
+        "leaseResponsibility": "Tenant",
+        "leaseClauseRef": "Section 9.1",
+        "emergencyLevel": "Routine",
+        "status": "Dispatched",
+        "assignedTo": "staff_001",
+        "timeline": [{"status": "Dispatched"}],
+    }
+
+    result = db.work_orders.insert_one(mock_ticket)
+    inserted_id = str(result.inserted_id)
+
+    completion_payload = {
+        "completedBy": "staff_001",
+        "completionNotes": "Replaced the faulty thermostat and verified cooling restored.",
+    }
+
+    response = client.post(
+        f"/api/tickets/{inserted_id}/complete", json=completion_payload
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["ticket"]["status"] == "Completed"
+    assert data["ticket"]["completedBy"] == "staff_001"
+    assert data["ticket"]["completionNotes"] == completion_payload["completionNotes"]
+    assert data["ticket"]["externalSystemPayload"]["action"] == "COMPLETE_WORK_ORDER"
+
+    db.work_orders.delete_one({"_id": result.inserted_id})
+
+
 @pytest.mark.asyncio
 async def test_duplicate_prevention_logic() -> None:
     """Verifies that the brain uses check_active_work_orders and prevents duplicate work order creation."""

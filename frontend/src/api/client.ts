@@ -1,9 +1,10 @@
-import { Ticket, Staff, RAGHit, ChatMessage } from '@/types';
+import { Ticket, Staff, RAGHit, ChatMessage, SourceDocument } from '@/types';
 import { z } from 'zod';
 import {
   ticketSchema,
   staffSchema,
   ragHitSchema,
+  sourceDocumentSchema,
   chatResponseSchema,
   sessionSchema,
 } from '@/types/schemas';
@@ -122,6 +123,36 @@ export async function searchKnowledgeBase(
 }
 
 /**
+ * Fetches the complete source lease or manual behind a retrieval hit.
+ *
+ * @param type The document type ('leases' or 'manuals').
+ * @param leaseId Optional lease ID selector for lease source documents.
+ * @param equipmentModel Optional model selector for manual source documents.
+ * @returns A promise resolving to the full source document.
+ */
+export async function fetchSourceDocument(
+  type: 'leases' | 'manuals',
+  leaseId?: string,
+  equipmentModel?: string
+): Promise<SourceDocument> {
+  let url = `${API_BASE}/api/docs/source?type=${type}`;
+  if (leaseId) {
+    url += `&leaseId=${leaseId}`;
+  }
+  if (equipmentModel) {
+    url += `&equipmentModel=${encodeURIComponent(equipmentModel)}`;
+  }
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch source document: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return sourceDocumentSchema.parse(data) as SourceDocument;
+}
+
+/**
  * Authorizes a work order dispatch, assigning a technician and cost overrides.
  * 
  * @param ticketId The work order database ID.
@@ -167,6 +198,37 @@ export async function rejectTicket(ticketId: string): Promise<{ success: boolean
   if (!res.ok) {
     throw new Error(`Reject API error: ${res.statusText}`);
   }
+  const data = await res.json();
+  const schema = z.object({
+    success: z.boolean(),
+    ticket: ticketSchema,
+  });
+  return schema.parse(data) as { success: boolean; ticket: Ticket };
+}
+
+/**
+ * Marks an assigned field work order as completed by the technician.
+ *
+ * @param ticketId The work order database ID.
+ * @param completedBy The staff member concluding the ticket.
+ * @param completionNotes Optional completion summary or handoff notes.
+ * @returns A promise resolving to the updated Ticket result.
+ */
+export async function completeTicket(
+  ticketId: string,
+  completedBy: string,
+  completionNotes: string
+): Promise<{ success: boolean; ticket: Ticket }> {
+  const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completedBy, completionNotes }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Complete API error: ${res.statusText}`);
+  }
+
   const data = await res.json();
   const schema = z.object({
     success: z.boolean(),

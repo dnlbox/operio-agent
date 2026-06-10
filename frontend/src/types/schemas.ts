@@ -27,7 +27,7 @@ export const ticketSchema = z.object({
   tenantId: z.string(),
   assetId: z.string(),
   description: z.string(),
-  status: z.enum(['Pending Approval', 'Dispatched', 'Rejected', 'Created']),
+  status: z.enum(['Pending Approval', 'Dispatched', 'Rejected', 'Created', 'In Progress', 'Completed']),
   assignedTo: z.string().nullable(),
   costEstimation: z.number(),
   leaseResponsibility: z.enum(['Tenant', 'Landlord', 'Unknown']),
@@ -81,6 +81,18 @@ export const ragHitSchema = z.object({
   leaseId: z.string().optional(),
   equipmentModel: z.string().optional(),
   score: z.number(),
+});
+
+/**
+ * Zod schema validating a full source document response.
+ */
+export const sourceDocumentSchema = z.object({
+  type: z.enum(['leases', 'manuals']),
+  title: z.string(),
+  content: z.string(),
+  pdfUrl: z.string().optional(),
+  leaseId: z.string().optional(),
+  equipmentModel: z.string().optional(),
 });
 
 /**

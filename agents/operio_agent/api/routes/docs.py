@@ -1,12 +1,17 @@
 """API routes for documents and manuals search endpoints."""
 
 from typing import Any, Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pymongo.database import Database
 from google import genai
 
 from operio_agent.api.deps import get_db
 from operio_agent.config import settings
+from operio_agent.documents.source_registry import (
+    LEASE_SOURCE_FILES,
+    MANUAL_SOURCE_FILES,
+    SOURCE_ROOT,
+)
 
 router = APIRouter()
 
@@ -29,6 +34,47 @@ def _get_embedding(query: str) -> list[float] | None:
     except Exception as e:
         print(f"[Search API] Failed to generate embedding: {e}")
     return None
+
+
+def _extract_document_title(markdown: str, fallback: str) -> str:
+    """Extracts the first markdown heading line for display in the inspector."""
+    first_line = markdown.splitlines()[0].strip() if markdown else ""
+    if first_line.startswith("#"):
+        return first_line.lstrip("#").strip()
+    return fallback
+
+
+def load_source_document(
+    document_type: str,
+    lease_id: str | None = None,
+    equipment_model: str | None = None,
+) -> dict[str, str]:
+    """Loads the full source lease or manual backing a retrieval hit."""
+    if document_type == "leases":
+        if not lease_id:
+            raise KeyError("A leaseId is required for lease source documents.")
+        source_meta = LEASE_SOURCE_FILES[lease_id]
+        source_id_key = "leaseId"
+        source_id_value = lease_id
+    elif document_type == "manuals":
+        if not equipment_model:
+            raise KeyError("An equipmentModel is required for manual source documents.")
+        source_meta = MANUAL_SOURCE_FILES[equipment_model]
+        source_id_key = "equipmentModel"
+        source_id_value = equipment_model
+    else:
+        raise KeyError(f"Unsupported source document type: {document_type}")
+
+    markdown_path = SOURCE_ROOT / source_meta["file"]
+    content = markdown_path.read_text(encoding="utf-8")
+
+    return {
+        "type": document_type,
+        "title": _extract_document_title(content, source_id_value),
+        "content": content,
+        "pdfUrl": source_meta["pdfUrl"],
+        source_id_key: source_id_value,
+    }
 
 
 def _run_rag_search(
@@ -294,3 +340,20 @@ def search_docs(
 
     hits.sort(key=lambda x: x.get("score") or 0, reverse=True)
     return hits
+
+
+@router.get("/docs/source")
+def get_source_document(
+    type: str,
+    leaseId: Optional[str] = None,
+    equipmentModel: Optional[str] = None,
+) -> dict[str, str]:
+    """Returns the full lease or manual text for source inspection."""
+    try:
+        return load_source_document(
+            document_type=type,
+            lease_id=leaseId,
+            equipment_model=equipmentModel,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

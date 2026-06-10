@@ -1822,6 +1822,46 @@ dialog.dialog-overlay[open] {
   gap: 0.75rem;
 }
 
+.field-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.field-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.field-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.field-task-completion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--brand-border);
+}
+
+.field-task-submit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
 .history-row {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
@@ -3764,6 +3804,61 @@ textarea.dialog-input {
   max-width: 720px;
 }
 
+.source-document-card {
+  width: min(960px, calc(100vw - 2rem));
+}
+
+.source-document-body {
+  gap: 1rem;
+}
+
+.source-document-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.source-document-content {
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(162, 182, 204, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+
+.source-document-content h1,
+.source-document-content h2,
+.source-document-content h3 {
+  margin: 0 0 0.75rem;
+  color: var(--color-text);
+  font-family: var(--font-headings);
+  line-height: 1.25;
+}
+
+.source-document-content h1 {
+  font-size: 1.35rem;
+}
+
+.source-document-content h2 {
+  margin-top: 1.5rem;
+  font-size: 1.08rem;
+}
+
+.source-document-content h3 {
+  margin-top: 1rem;
+  font-size: 0.98rem;
+  color: var(--color-primary);
+}
+
+.source-document-content hr {
+  border: 0;
+  border-top: 1px solid rgba(162, 182, 204, 0.12);
+  margin: 1rem 0;
+}
+
 @media (max-width: 1200px) {
   .command-deck,
   .command-workspace,
@@ -3862,6 +3957,17 @@ textarea.dialog-input {
   .history-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .field-task-header,
+  .field-task-submit-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .field-task-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .chat-header-actions {

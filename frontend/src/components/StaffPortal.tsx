@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Staff, Ticket } from '@/types';
 import { useStore } from '@/state/store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchTickets, fetchStaff, updateStaff, fetchSession } from '@/api/client';
+import { completeTicket, fetchTickets, fetchStaff, updateStaff, fetchSession } from '@/api/client';
 import { showSystemNotice } from '@/utils/dom';
 import { parseMarkdown } from '@/utils/markdown';
 
@@ -18,6 +18,8 @@ export const StaffPortal: React.FC = () => {
 
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [chatHistorySessionId, setChatHistorySessionId] = useState<string | null>(null);
+  const [activeCompletionTicketId, setActiveCompletionTicketId] = useState<string | null>(null);
+  const [completionNotes, setCompletionNotes] = useState<string>('');
 
   const chatDialogRef = useRef<HTMLDialogElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,8 @@ export const StaffPortal: React.FC = () => {
       setShiftStart(selectedStaff.shiftStart);
       setShiftEnd(selectedStaff.shiftEnd);
       setSkills(selectedStaff.skills.join(', '));
+      setActiveCompletionTicketId(null);
+      setCompletionNotes('');
     }
   }, [selectedStaffId, selectedStaff]);
 
@@ -93,6 +97,24 @@ export const StaffPortal: React.FC = () => {
     }
   });
 
+  const completeTicketMutation = useMutation({
+    mutationFn: ({ ticketId, completedBy, notes }: {
+      ticketId: string;
+      completedBy: string;
+      notes: string;
+    }) => completeTicket(ticketId, completedBy, notes),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      setActiveCompletionTicketId(null);
+      setCompletionNotes('');
+      showSystemNotice(`Work order ${data.ticket._id.substring(0, 8).toUpperCase()} marked completed.`);
+    },
+    onError: (err) => {
+      console.error(err);
+      showSystemNotice('Failed to conclude work order. Check backend server.');
+    }
+  });
+
   const handleSave = () => {
     if (!selectedStaff) return;
 
@@ -105,6 +127,28 @@ export const StaffPortal: React.FC = () => {
     };
 
     updateStaffMutation.mutate({ id: selectedStaff._id, updates });
+  };
+
+  const handleCompletionStart = (ticketId: string) => {
+    setActiveCompletionTicketId(ticketId);
+    setCompletionNotes('');
+  };
+
+  const handleCompletionCancel = () => {
+    setActiveCompletionTicketId(null);
+    setCompletionNotes('');
+  };
+
+  const handleCompletionSubmit = () => {
+    if (!selectedStaffId || !activeCompletionTicketId) {
+      return;
+    }
+
+    completeTicketMutation.mutate({
+      ticketId: activeCompletionTicketId,
+      completedBy: selectedStaffId,
+      notes: completionNotes.trim(),
+    });
   };
 
   const handleChatDialogBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
@@ -124,6 +168,9 @@ export const StaffPortal: React.FC = () => {
   };
 
   const assignedTickets = ticketsList.filter(t => t.assignedTo === selectedStaffId);
+  const activeFieldTickets = assignedTickets.filter(
+    (ticket) => ticket.status === 'Dispatched' || ticket.status === 'In Progress'
+  );
 
   return (
     <div className="staff-portal-grid">
@@ -273,6 +320,88 @@ export const StaffPortal: React.FC = () => {
                   onChange={(e) => setSkills(e.target.value)}
                   placeholder="e.g. HVAC, Electrical" 
                 />
+              </div>
+            </div>
+
+            <div className="history-section">
+              <h3 className="headline-sm history-section-title">
+                Active Field Assignments
+              </h3>
+
+              <div className="history-list">
+                {activeFieldTickets.length === 0 ? (
+                  <div className="body-sm muted">No dispatched work orders are waiting on field completion.</div>
+                ) : (
+                  activeFieldTickets.map((ticket) => {
+                    const isActiveCompletion = activeCompletionTicketId === ticket._id;
+                    const isCompleting = completeTicketMutation.isPending && isActiveCompletion;
+
+                    return (
+                      <div key={ticket._id} className="field-task-card">
+                        <div className="field-task-header">
+                          <div className="history-info">
+                            <span className="history-id font-mono">
+                              {ticket._id.substring(0, 8).toUpperCase()}
+                            </span>
+                            <span className="history-desc">{ticket.description}</span>
+                            <span className="history-subtext muted">
+                              {ticket.assetId} · Est: ${ticket.costEstimation}
+                            </span>
+                          </div>
+                          <div className="field-task-actions">
+                            <span className="chip chip-primary">{ticket.status}</span>
+                            {isActiveCompletion ? (
+                              <button
+                                className="btn btn-secondary btn-xs"
+                                type="button"
+                                onClick={handleCompletionCancel}
+                                disabled={isCompleting}
+                              >
+                                Cancel
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-primary btn-xs"
+                                type="button"
+                                onClick={() => handleCompletionStart(ticket._id)}
+                              >
+                                Conclude Work Order
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {isActiveCompletion ? (
+                          <div className="field-task-completion">
+                            <label htmlFor={`completion-notes-${ticket._id}`} className="label-sm uppercase muted">
+                              Completion Notes
+                            </label>
+                            <textarea
+                              id={`completion-notes-${ticket._id}`}
+                              className="form-control-glass form-textarea compact"
+                              value={completionNotes}
+                              onChange={(event) => setCompletionNotes(event.target.value)}
+                              placeholder="Summarize the work completed, parts replaced, or any follow-up needed."
+                            />
+                            <div className="field-task-submit-row">
+                              <span className="body-sm muted">
+                                This closes the work order as completed by {selectedStaff.name}.
+                              </span>
+                              <button
+                                className="btn btn-primary btn-xs"
+                                type="button"
+                                onClick={handleCompletionSubmit}
+                                disabled={isCompleting}
+                              >
+                                {isCompleting ? 'Closing...' : 'Confirm Completion'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 

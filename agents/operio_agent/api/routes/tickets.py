@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pymongo.database import Database
 
 from operio_agent.api.deps import get_db
-from operio_agent.api.schemas.tickets import HitlApprovalRequest
+from operio_agent.api.schemas.tickets import (
+    HitlApprovalRequest,
+    WorkOrderCompletionRequest,
+)
 
 router = APIRouter()
 
@@ -165,6 +168,75 @@ def reject_ticket(
         raise HTTPException(
             status_code=404, detail="Work order ticket not found."
         )
+
+    result["_id"] = str(result["_id"])
+    return {"success": True, "ticket": result}
+
+
+@router.post("/tickets/{ticket_id}/complete")
+def complete_ticket(
+    ticket_id: str,
+    completion: WorkOrderCompletionRequest,
+    db: Database = Depends(get_db),
+) -> dict[str, Any]:
+    """Marks an assigned field work order as completed."""
+    print(f"[API] Completing ticket {ticket_id} with data: {completion}")
+
+    try:
+        query_id = ObjectId(ticket_id)
+    except Exception:
+        query_id = ticket_id  # type: ignore
+
+    existing_ticket = db.work_orders.find_one({"_id": query_id})
+    if not existing_ticket:
+        raise HTTPException(status_code=404, detail="Work order ticket not found.")
+
+    existing_status = existing_ticket.get("status")
+    if existing_status in {"Completed", "Rejected"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Work order is already closed with status {existing_status}.",
+        )
+
+    if existing_status not in {"Dispatched", "In Progress"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Only dispatched or in-progress work orders can be completed.",
+        )
+
+    assigned_to = existing_ticket.get("assignedTo")
+    if assigned_to and assigned_to != completion.completed_by:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the assigned technician can conclude this work order.",
+        )
+
+    completion_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    completion_note = completion.completion_notes or "Completed by field technician."
+
+    result = db.work_orders.find_one_and_update(
+        {"_id": query_id},
+        {
+            "$set": {
+                "status": "Completed",
+                "completedBy": completion.completed_by,
+                "completedAt": completion_timestamp,
+                "completionNotes": completion.completion_notes,
+                "externalSystemPayload.action": "COMPLETE_WORK_ORDER",
+            },
+            "$push": {
+                "timeline": {
+                    "status": "Completed",
+                    "timestamp": completion_timestamp,
+                    "notes": completion_note,
+                }
+            },
+        },
+        return_document=True,
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Work order ticket not found.")
 
     result["_id"] = str(result["_id"])
     return {"success": True, "ticket": result}

@@ -93,6 +93,24 @@ export interface RAGHit {
 }
 
 /**
+ * Represents the full backing document for a retrieval hit.
+ */
+export interface SourceDocument {
+  /** The document source type. */
+  type: 'leases' | 'manuals';
+  /** The full document title. */
+  title: string;
+  /** The complete markdown source content. */
+  content: string;
+  /** Optional placeholder or downloadable PDF asset path. */
+  pdfUrl?: string;
+  /** The lease ID context if the document is a lease. */
+  leaseId?: string;
+  /** The equipment model context if the document is a manual. */
+  equipmentModel?: string;
+}
+
+/**
  * Represents a single message in a chat history.
  */
 export interface ChatMessage {

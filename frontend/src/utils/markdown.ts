@@ -24,6 +24,24 @@ export function parseMarkdown(text: string): string {
 }
 
 /**
+ * Formats full lease and manual markdown into readable document HTML.
+ *
+ * @param text The full markdown document source.
+ * @returns HTML suitable for long-form document inspection.
+ */
+export function parseDocumentMarkdown(text: string): string {
+  if (!text) return '';
+
+  return text
+    .replace(/^---$/gim, '<hr />')
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+/**
  * Escapes query terms so they can be safely embedded in a regular expression.
  *
  * @param query The raw search query.

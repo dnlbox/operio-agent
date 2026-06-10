@@ -11,6 +11,7 @@
     "test": "vitest run --dir tests && pnpm --filter operio-frontend test && PYTHONPATH=agents uv run --project agents pytest",
     "evaluate": "PYTHONPATH=agents uv run --project agents pytest agents/tests/test_evaluate_brain.py",
     "eval:flow": "tsx scripts/run-eval-flow.ts",
+    "pdf:generate": "PYTHONPATH=agents uv run --project agents python agents/scripts/generate_source_pdfs.py",
     "seed": "tsx scripts/seed.ts",
     "frontend:dev": "pnpm --filter operio-frontend dev",
     "frontend:build": "pnpm --filter operio-frontend build",
