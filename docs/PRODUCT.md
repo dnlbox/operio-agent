@@ -9,14 +9,18 @@ This document defines the product vision, market problem, and target solution fo
 Physical shopping malls and commercial real estate assets are managed using fragmented, manual, and disconnected systems. Today, property developers and operators (such as RioCan) face three key challenges:
 
 ### A. The "Human Glue" in Lease Audits
-Every tenant in a shopping mall has a custom, negotiated lease agreement. When a maintenance issue arises (e.g., HVAC failure, plumbing leak, storefront window crack), operators must manually audit the specific PDF lease agreement to determine **who is financially and operationally responsible**. 
-*   *Example:* Does Section 9.2 place storefront HVAC repair costs on the landlord or the tenant?
-This manual search creates operational delays and leads to disputes or incorrect billings.
+
+Every tenant in a shopping mall has a custom, negotiated lease agreement. When a maintenance issue arises (e.g., HVAC failure, plumbing leak, storefront window crack), operators must manually audit the specific PDF lease agreement to determine **who is financially and operationally responsible**.
+
+- _Example:_ Does Section 9.2 place storefront HVAC repair costs on the landlord or the tenant?
+  This manual search creates operational delays and leads to disputes or incorrect billings.
 
 ### B. Manual Vendor Coordination and Dispatch
+
 Once responsibility is established, dispatchers must log into CMMS systems (like Yardi, ServiceChannel, or Corrigo) to search for approved contractors, verify certificates of insurance (COI), check rates, and draft work orders. This is a highly manual, multi-step process prone to human delays.
 
 ### C. Isolated Asset Diagnostics
+
 Building operators and technicians in the field encounter equipment faults (e.g., an escalator flashing an error code). Finding troubleshooting protocols requires digging through physical binders or unindexed cloud directories containing thousands of pages of PDF equipment manuals.
 
 ---
@@ -48,6 +52,7 @@ Building operators and technicians in the field encounter equipment faults (e.g.
 ```
 
 ### Key Capabilities:
+
 1.  **Semantic Lease Auditing:** Instantly parses tenant leases to extract liability clauses, limits of liability, and maintenance boundaries, presenting them clearly to both the tenant and manager.
 2.  **Autonomous Dispatching:** Connects to the vendor and staff registries to match work orders with the nearest qualified, active, and compliant technician.
 3.  **Interactive Diagnostics Assistant:** Leverages manufacturer manuals to answer field questions, troubleshoot error codes, and record maintenance actions back into the asset ledger.
@@ -58,13 +63,16 @@ Building operators and technicians in the field encounter equipment faults (e.g.
 ## 3. Core Persona Flows
 
 ### A. The Tenant (e.g., Retail Store Manager)
-*   **Need:** Report facility issues quickly and get transparent updates on who pays and when help is coming.
-*   **Flow:** Sends a message to the tenant chat interface -> Receives an immediate analysis of lease responsibility -> Confirms dispatch -> Receives technician details and ETA.
+
+- **Need:** Report facility issues quickly and get transparent updates on who pays and when help is coming.
+- **Flow:** Sends a message to the tenant chat interface -> Receives an immediate analysis of lease responsibility -> Confirms dispatch -> Receives technician details and ETA.
 
 ### B. The Property/Mall Manager
-*   **Need:** Maintain high operational uptime, enforce lease compliance, and manage repair budgets.
-*   **Flow:** Monitors the live operations dashboard -> Receives push approvals for high-cost dispatch requests -> Audits agent reasoning traces -> Views performance metrics and lease patterns.
+
+- **Need:** Maintain high operational uptime, enforce lease compliance, and manage repair budgets.
+- **Flow:** Monitors the live operations dashboard -> Receives push approvals for high-cost dispatch requests -> Audits agent reasoning traces -> Views performance metrics and lease patterns.
 
 ### C. The Building Technician / Contractor
-*   **Need:** Clear work orders, equipment contexts, and step-by-step troubleshooting assistance.
-*   **Flow:** Receives automated work order assignment on mobile -> Reports equipment status/error code to agent -> Receives step-by-step manual troubleshooting guide -> Updates work order status to complete.
+
+- **Need:** Clear work orders, equipment contexts, and step-by-step troubleshooting assistance.
+- **Flow:** Receives automated work order assignment on mobile -> Reports equipment status/error code to agent -> Receives step-by-step manual troubleshooting guide -> Updates work order status to complete.

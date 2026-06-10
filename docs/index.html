@@ -211,7 +211,7 @@
       </p>
       <ul class="tech-stack">
         <li class="tech-tag highlight-tag">Gemini (google-genai SDK)</li>
-        <li class="tech-tag highlight-tag">Arize Phoenix (OTel Tracing)</li>
+        <li class="tech-tag highlight-tag">Arize Phoenix + AX</li>
         <li class="tech-tag highlight-tag">Model Context Protocol (MCP)</li>
         <li class="tech-tag">FastAPI & Python 3.13</li>
         <li class="tech-tag">MongoDB (MCP Server)</li>
@@ -219,7 +219,7 @@
         <li class="tech-tag">TypeScript & Node.js</li>
       </ul>
       <p class="body-sm">
-        Every step of the agent's reasoning loop—from lease searches to MongoDB writes—is instrumented with OpenTelemetry and traced in Arize Phoenix for complete operational auditing.
+        Every step of the agent's reasoning loop—from lease searches to MongoDB writes—is instrumented with OpenTelemetry and traced in Arize Phoenix, with optional AX publishing for reusable benchmark datasets and experiments.
       </p>
     </section>
 
@@ -261,10 +261,10 @@
 docker compose up -d
  
 # 2. Seed database and generate embeddings
-npm run seed
+pnpm run seed
 
 # 3. Launch the Python FastAPI backend & MCP client
-npm run dev
+pnpm run dev
       </div>
       <p class="body-sm">
         The PoC command center will be available at <span class="highlight">http://localhost:3001</span>.
