@@ -196,7 +196,7 @@ export const updateRagConfig = (updates: Partial<AppState['rag']>) => (state: Ap
 /**
  * Action: Updates RAG search results list.
  * 
- * @param results The Elasticsearch hits.
+ * @param results The Atlas Search hits.
  * @returns State updater function.
  */
 export const setRagResults = (results: RAGHit[]) => (state: AppState): AppState => ({

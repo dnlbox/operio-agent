@@ -9,8 +9,7 @@ This document describes the technical stack, system components, database schemas
 - **LLM & Reasoning Engine:** Gemini 2.5 Flash (integrated via the official `google-genai` Python SDK).
 - **Backend Orchestrator:** FastAPI & Python 3.13 (coordinating the agent reasoning loop and exposing endpoints to the frontend).
 - **External Integration Layer (MCP Servers):**
-  - **MongoDB MCP Server:** Spawned as a Node.js stdio subprocess, managing database collections (Tenants, Staff, Work Orders, Sessions).
-  - **Elasticsearch MCP Server:** Spawned as a Node.js stdio subprocess, managing lease indexes and manufacturer manuals with tenant-level filters.
+  - **MongoDB MCP Server:** Spawned as a Node.js stdio subprocess, managing database collections (Tenants, Staff, Work Orders, Sessions, Leases, Manuals) and executing both CRUD operations and RAG search.
 - **Observability & Tracing:** **Arize / Phoenix** (using `openinference-instrumentation-google-genai` and OpenTelemetry to capture trace trees, latencies, and tool execution metrics).
 - **Frontend Interface:** Glassmorphic single-page application built with React 19, TypeScript, Vite, and a functional Zustand state layer.
 
@@ -37,8 +36,7 @@ The system consists of three main boundaries: the User Interface, the Python Orc
                                v Model Context Protocol (Stdio)
 +-------------------------------------------------------------+
 |                 EXTERNAL INTEGRATION LAYER                  |
-|    - Elastic MCP Server (Leases, Manuals)                   |
-|    - MongoDB MCP Server (CRUD operations)                   |
+|    - MongoDB MCP Server (CRUD & RAG Search)                 |
 +---------------+------------------------------+--------------+
                 |                              |
                 v OTel Tracing                 v Tracing Logs
@@ -120,24 +118,18 @@ Contains current maintenance records, timelines, and Yardi/ServiceChannel integr
 
 ## 4. MCP Integration Strategy
 
-### A. Elastic MCP Server (RAG Search)
+### A. MongoDB MCP Server (CRUD & RAG Search)
 
-Exposes information retrieval capabilities.
+Exposes transactional, state management, and information retrieval capabilities.
 
-- **Tenant Isolation**: To prevent cross-tenant lease leaks, the `search_leases` tool requires `leaseId`. The Python backend resolves the caller's lease ID from session credentials and injects it into the Elasticsearch query.
-- **Tools**:
-  - `search_leases(leaseId, query)`: Performs semantic keyword search restricted to a single lease context.
-  - `search_manuals(equipment_model, query)`: Finds diagnostic and troubleshooting steps for specific assets.
-
-### B. MongoDB MCP Server (State Control)
-
-Exposes transactional and state management capabilities.
-
+- **Tenant Isolation**: To prevent cross-tenant lease leaks, the `search_leases` tool requires `leaseId`. The Python backend resolves the caller's lease ID from session credentials and injects it into the MongoDB query.
 - **Dynamic Routing**: The server evaluates ticket emergency levels and liabilities to route statuses:
   - If `emergencyLevel` is `Emergency`, the status shifts to `Dispatched` (Emergency Bypass).
   - Else if `leaseResponsibility` is `Tenant`, the status is `Dispatched` (Tenant Chargeback).
   - Else if `leaseResponsibility` is `Landlord` and `costEstimation` > $150, the status is `Pending Approval` (HITL Escalation).
 - **Tools**:
+  - `search_leases(leaseId, query)`: Performs semantic keyword search restricted to a single lease context.
+  - `search_manuals(equipment_model, query)`: Finds diagnostic and troubleshooting steps for specific assets.
   - `query_active_staff(skill, sector)`: Finds available on-site operators.
   - `create_work_order(wo_payload)`: Inserts a new work order.
   - `update_work_order_status(wo_id, status, technician_id)`: Updates database state.
@@ -177,3 +169,33 @@ The agent orchestrator routes requests through a set of strict operational guard
 1. **Emergency Bypass**: Triggered by extreme weather context (e.g. extreme winter cold alerts below -15°C or burst pipes). The agent sets `emergencyLevel: 'Emergency'`, forcing an immediate auto-dispatch.
 2. **Tenant Chargeback**: When RAG audit confirms that the tenant is liable for the repair under lease clauses (e.g. Nike HVAC repairs under $1,000), the ticket is auto-dispatched since the landlord incurs no cost.
 3. **HITL Gate**: When the landlord is liable (Common Area Maintenance) and the repair costs exceed $150, the agent flags the ticket as `Pending Approval`. The manager can override details (cost, technician, notes) and review the generated ServiceChannel/Yardi payload before authorizing dispatch.
+
+---
+
+## 6. Multi-Tiered RAG Search Pipeline
+
+To bridge the gap between simple keyword lookup and semantic understanding (e.g., matching "Air Conditioning" to "HVAC" or "Air Handling Unit (AHU)" instead of just any document containing the word "air"), the Evidence Explorer operates a self-healing, multi-tiered search pipeline.
+
+This pipeline runs identically in the backend Python RAG endpoint and the TypeScript MCP server:
+
+### A. Fallback Sequence
+```mermaid
+graph TD
+    Query[Search Query] --> Embed[Generate 3072d Embedding via Gemini]
+    Embed --> VecSearch{Try Atlas Vector Search}
+    VecSearch -- Success --> Return[Return Relevance-Ranked Hits]
+    VecSearch -- Failure / Index Building --> AtlasSearch{Try Atlas Search with Phrase Boost}
+    AtlasSearch -- Success --> Return
+    AtlasSearch -- Failure / FTS Index Limit --> StdText{Try Standard MongoDB Text Index}
+    StdText -- Success --> Return
+    StdText -- Failure --> Regex[Try Regex Fallback Search]
+    Regex --> Return
+```
+
+1. **Tier 1: Atlas Vector Search (`$vectorSearch`):** Computes 3072-dimensional vector embeddings for search queries at runtime using the Gemini embedding API (`gemini-embedding-2`). Documents are stored with pre-calculated embeddings. Enforces tenant pre-filtering (e.g., restricted to caller's `leaseId`).
+2. **Tier 2: Atlas Search (`$search`) with Phrase Boosting:** Runs a compound Lucene query:
+   - A `should` clause matching spelling variations (fuzzy).
+   - A `phrase` clause with a slop of 2 to boost exact phrases (e.g., "Air Conditioning" gets a high relevance score while isolated matches on "air" score low).
+3. **Tier 3: Standard MongoDB Text Search (`$text`):** Leverages native MongoDB text indexes (`title_text_content_text`). This serves as the primary fallback if the Atlas FTS index limit has been exceeded on shared/free cluster tiers.
+4. **Tier 4: Regex Fallback:** A case-insensitive regex pattern match mapping multiple query terms as a final fail-safe.
+

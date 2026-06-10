@@ -71,7 +71,7 @@ export interface Staff {
 }
 
 /**
- * Represents a document hit returned from RAG Elasticsearch index search.
+ * Represents a document hit returned from RAG MongoDB Atlas Search.
  */
 export interface RAGHit {
   /** The unique ID of the document hit. */

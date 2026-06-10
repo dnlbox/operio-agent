@@ -63,7 +63,7 @@ export const KnowledgeBase: React.FC = () => {
       <section className="panel query-panel">
         <h2 className="panel-title">
           <span className="material-symbols-outlined">database_search</span>
-          Elasticsearch Query Console
+          Atlas Search Query Console
         </h2>
         <div className="rag-form">
           {/* 1. Search Box (Top) */}
@@ -78,7 +78,7 @@ export const KnowledgeBase: React.FC = () => {
               placeholder="Search across all leases & manuals (e.g. HVAC, error, repair)..." 
             />
             <p className="label-xs muted mt-1">
-              <strong>Search Tip:</strong> Elasticsearch disables fuzziness for short terms like <code>AC</code> (length &le; 2) under <code>"fuzziness": "AUTO"</code>, requiring exact matches. Try <code>HVAC</code>, <code>Air Conditioning</code>, <code>thermostat</code>, or <code>compressor</code>.
+              <strong>Search Tip:</strong> Atlas Search utilizes semantic vector embeddings and compound keyword phrase matching. Try <code>HVAC</code>, <code>Air Conditioning</code>, <code>thermostat</code>, or <code>compressor</code>.
             </p>
           </div>
 
@@ -183,7 +183,7 @@ export const KnowledgeBase: React.FC = () => {
             <div className="rag-error">Search execution failed. Make sure the database indices are seeded.</div>
           ) : results.length === 0 ? (
             <div className="rag-empty">
-              <p>Enter a query in the console to inspect Elasticsearch vector and keyword matches.</p>
+              <p>Enter a query in the console to inspect Atlas Search vector and keyword matches.</p>
             </div>
           ) : (
             results.map((hit) => {

@@ -215,7 +215,7 @@
         <li class="tech-tag highlight-tag">Model Context Protocol (MCP)</li>
         <li class="tech-tag">FastAPI & Python 3.13</li>
         <li class="tech-tag">MongoDB (MCP Server)</li>
-        <li class="tech-tag">Elasticsearch (MCP RAG Server)</li>
+        <li class="tech-tag">MongoDB Atlas Search (RAG)</li>
         <li class="tech-tag">TypeScript & Node.js</li>
       </ul>
       <p class="body-sm">
@@ -231,7 +231,7 @@
         <div class="scenario-card">
           <span class="scenario-title">1. Secure Tenant Lease Audit & Chargeback (Routine HVAC)</span>
           <p class="body-sm">
-            A tenant reports an AC failure. The agent executes a secure, tenant-isolated Elasticsearch RAG search. It detects Section 9.1 (Tenant responsible up to $1,000). The agent estimates cost ($850) and matches HVAC technician Sarah Connor. Because it is a tenant chargeback, it auto-dispatches, bypassing landlord approval gates.
+            A tenant reports an AC failure. The agent executes a secure, tenant-isolated MongoDB Atlas Search RAG query. It detects Section 9.1 (Tenant responsible up to $1,000). The agent estimates cost ($850) and matches HVAC technician Sarah Connor. Because it is a tenant chargeback, it auto-dispatches, bypassing landlord approval gates.
           </p>
         </div>
 
@@ -257,10 +257,10 @@
       <h2>Developer Quick Start</h2>
       <p>Run the entire SRE command center locally using our environment setup:</p>
       <div class="code-box">
-# 1. Spin up MongoDB, Elastic, and Arize Phoenix
+# 1. Spin up MongoDB and Arize Phoenix
 docker compose up -d
-
-# 2. Seed database indexes and mock data
+ 
+# 2. Seed database and generate embeddings
 npm run seed
 
 # 3. Launch the Python FastAPI backend & MCP client

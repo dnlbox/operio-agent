@@ -2,7 +2,7 @@
 
 > Autonomous mall operations agent for lease-aware maintenance dispatch.
 
-Operio Agent is a FastAPI + React application for handling retail center incidents end to end. It combines Gemini-powered reasoning, Elastic-backed lease and manual retrieval, MongoDB-backed operational state, and Arize Phoenix tracing so each dispatch decision is evidence-backed and reviewable.
+Operio Agent is a FastAPI + React application for handling retail center incidents end to end. It combines Gemini-powered reasoning, a multi-tiered MongoDB Atlas Search & Vector Search pipeline for lease and manual retrieval, MongoDB-backed operational state, and Arize Phoenix tracing so each dispatch decision is evidence-backed and reviewable.
 
 ## What It Does
 
@@ -15,9 +15,8 @@ Operio Agent is a FastAPI + React application for handling retail center inciden
 ## Runtime Stack
 
 - Google Cloud Agent Builder via `google-adk`
-- Gemini on Vertex AI using Google Cloud authentication
-- Elastic MCP server for lease and manual retrieval
-- MongoDB MCP server for work orders, sessions, tenants, and staff state
+- Gemini on Vertex AI and direct Google Developer API
+- MongoDB MCP server for work orders, sessions, tenants, staff, leases, and manuals (RAG Search)
 - Arize Phoenix for trace capture and evaluation visibility
 - FastAPI backend served with a React + Vite frontend
 
@@ -73,7 +72,6 @@ Set at least:
 | `GEMINI_API_KEY` | Optional legacy fallback for direct Gemini API use | none |
 | `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017` |
 | `MONGO_DB` | MongoDB database name | `operio` |
-| `ELASTIC_URI` | Elasticsearch base URL | `http://localhost:9200` |
 | `PHOENIX_PROJECT_NAME` | Phoenix project name | `operio-agent` |
 | `PHOENIX_COLLECTOR_ENDPOINT` | Phoenix collector base URL | `http://localhost:6006` |
 
@@ -93,7 +91,6 @@ docker compose up -d
 This starts:
 
 - MongoDB on `http://localhost:27017`
-- Elasticsearch on `http://localhost:9200`
 - Arize Phoenix on `http://localhost:6006`
 
 ### 4. Seed demo data
@@ -102,7 +99,7 @@ This starts:
 pnpm run seed
 ```
 
-This loads mock tenants, technicians, work orders, lease documents, and equipment manuals.
+This loads mock tenants, technicians, work orders, lease documents, and equipment manuals, automatically generating 3072-dimensional vector embeddings using Gemini (`gemini-embedding-2`) to enable semantic search.
 
 ### 5. Run the app
 
@@ -140,7 +137,7 @@ Good scenarios for a judge or reviewer:
 - `pnpm run frontend:test` - run frontend tests
 - `pnpm run test` - run MCP tests, frontend tests, and backend pytest suites
 - `pnpm run evaluate` - run the evaluation harness
-- `pnpm run seed` - reseed MongoDB and Elasticsearch with demo data
+- `pnpm run seed` - reseed MongoDB with demo data and generate search embeddings
 
 ## License
 

@@ -27,6 +27,25 @@ const LEASES_SEARCH_INDEX = {
   }
 };
 
+const LEASES_VECTOR_INDEX = {
+  name: 'leases_vector_index',
+  type: 'vectorSearch',
+  definition: {
+    fields: [
+      {
+        type: 'vector',
+        path: 'embedding',
+        numDimensions: 3072,
+        similarity: 'cosine'
+      },
+      {
+        type: 'filter',
+        path: 'leaseId'
+      }
+    ]
+  }
+};
+
 const MANUALS_SEARCH_INDEX = {
   name: 'manuals_search',
   definition: {
@@ -40,6 +59,58 @@ const MANUALS_SEARCH_INDEX = {
     }
   }
 };
+
+const MANUALS_VECTOR_INDEX = {
+  name: 'manuals_vector_index',
+  type: 'vectorSearch',
+  definition: {
+    fields: [
+      {
+        type: 'vector',
+        path: 'embedding',
+        numDimensions: 3072,
+        similarity: 'cosine'
+      },
+      {
+        type: 'filter',
+        path: 'equipmentModel'
+      }
+    ]
+  }
+};
+
+/**
+ * Generates text embeddings using the Gemini API gemini-embedding-2 model.
+ */
+async function getEmbedding(text: string): Promise<number[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set.');
+  }
+
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: { parts: [{ text: cleanText }] }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to generate embedding: ${response.statusText}. Response: ${errorText}`);
+  }
+
+  const result = await response.json() as any;
+  if (!result.embedding || !result.embedding.values) {
+    throw new Error(`Failed to generate embedding: Invalid response format`);
+  }
+
+  return result.embedding.values;
+}
 
 const tenantsData = [
   {
@@ -134,18 +205,23 @@ function parseMarkdownSections(filePath: string): string[] {
 async function ensureSearchIndex(
   db: ReturnType<MongoClient['db']>,
   collectionName: string,
-  indexDef: { name: string; definition: object }
+  indexDef: { name: string; definition: object; type?: string }
 ): Promise<void> {
   try {
     const collection = db.collection(collectionName);
-    await collection.createSearchIndex({ name: indexDef.name, definition: indexDef.definition });
-    console.log(`  Atlas Search index "${indexDef.name}" created on "${collectionName}".`);
+    const options: any = { name: indexDef.name, definition: indexDef.definition };
+    if (indexDef.type) {
+      options.type = indexDef.type;
+    }
+    await collection.createSearchIndex(options);
+    console.log(`  Atlas Search index "${indexDef.name}" (type: ${indexDef.type || 'search'}) created on "${collectionName}".`);
   } catch (err: any) {
     const msg: string = err?.message ?? String(err);
-    console.warn(`  Could not auto-create Atlas Search index "${indexDef.name}" on "${collectionName}": ${msg}`);
+    console.warn(`  Could not auto-create Atlas Search index "${indexDef.name}" (type: ${indexDef.type || 'search'}) on "${collectionName}": ${msg}`);
     console.warn('  Create it manually in the MongoDB Atlas UI:');
     console.warn(`  Collection: ${MONGO_DB}.${collectionName}`);
     console.warn(`  Index name: ${indexDef.name}`);
+    console.warn(`  Index type: ${indexDef.type || 'search'}`);
     console.warn('  Index definition JSON:');
     console.warn(JSON.stringify(indexDef.definition, null, 2));
     console.warn('  Steps: Atlas UI -> Your Cluster -> Search -> Create Search Index -> JSON Editor -> paste above.');
@@ -343,12 +419,16 @@ async function seed() {
 
     console.log('Seeding "leases" collection...');
     await db.collection('leases').drop().catch(() => { /* collection may not exist yet */ });
-    const leaseDocs: object[] = [];
+    const leaseDocs: any[] = [];
     for (const { leaseId, titlePrefix, pdfUrl, file } of leaseFiles) {
       const sections = parseMarkdownSections(file);
-      sections.forEach((content, i) => {
-        leaseDocs.push({ leaseId, title: `${titlePrefix} ${i + 1}`, content, pdfUrl });
-      });
+      for (let i = 0; i < sections.length; i++) {
+        const content = sections[i];
+        const title = `${titlePrefix} ${i + 1}`;
+        console.log(`  Generating embedding for lease: "${title}"...`);
+        const embedding = await getEmbedding(content);
+        leaseDocs.push({ leaseId, title, content, pdfUrl, embedding });
+      }
     }
     if (leaseDocs.length > 0) {
       await db.collection('leases').insertMany(leaseDocs);
@@ -357,12 +437,16 @@ async function seed() {
 
     console.log('Seeding "manuals" collection...');
     await db.collection('manuals').drop().catch(() => { /* collection may not exist yet */ });
-    const manualDocs: object[] = [];
+    const manualDocs: any[] = [];
     for (const { equipmentModel, titlePrefix, pdfUrl, file } of manualFiles) {
       const sections = parseMarkdownSections(file);
-      sections.forEach((content, i) => {
-        manualDocs.push({ equipmentModel, title: `${titlePrefix} ${i + 1}`, content, pdfUrl });
-      });
+      for (let i = 0; i < sections.length; i++) {
+        const content = sections[i];
+        const title = `${titlePrefix} ${i + 1}`;
+        console.log(`  Generating embedding for manual: "${title}"...`);
+        const embedding = await getEmbedding(content);
+        manualDocs.push({ equipmentModel, title, content, pdfUrl, embedding });
+      }
     }
     if (manualDocs.length > 0) {
       await db.collection('manuals').insertMany(manualDocs);
@@ -375,6 +459,8 @@ async function seed() {
     console.log('Creating Atlas Search indexes...');
     await ensureSearchIndex(db, 'leases', LEASES_SEARCH_INDEX);
     await ensureSearchIndex(db, 'manuals', MANUALS_SEARCH_INDEX);
+    await ensureSearchIndex(db, 'leases', LEASES_VECTOR_INDEX);
+    await ensureSearchIndex(db, 'manuals', MANUALS_VECTOR_INDEX);
 
     console.log('MongoDB Seeding Completed successfully.');
   } catch (error) {

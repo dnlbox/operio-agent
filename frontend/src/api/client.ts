@@ -88,7 +88,7 @@ export async function sendChatMessage(
 }
 
 /**
- * Performs vector/keyword search queries in Elasticsearch across leases or equipment manuals.
+ * Performs vector/keyword search queries in MongoDB Atlas Search across leases or equipment manuals.
  * 
  * @param query The text to search.
  * @param type The document target index ('leases', 'manuals', or 'all').
